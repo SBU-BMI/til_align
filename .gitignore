@@ -1,3 +1,6 @@
+# Only keep one README (use markdown).
+README.html
+
 # History files
 .Rhistory
 .Rapp.history

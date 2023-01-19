@@ -1,15 +1,18 @@
 # Repository for containerization of Tumor-TIL alignment and downstream analysis
 
 ## This code is affiliated with the following publications
+
 - [Saltz et al. 2018](https://www.cell.com/cell-reports/fulltext/S2211-1247(18)30447-9?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS2211124718304479%3Fshowall%3Dtrue)
 - [Le et al. 2020](https://ajp.amjpathol.org/article/S0002-9440(20)30188-7/fulltext)
 - [Fassler et al. 2022](https://pubmed.ncbi.nlm.nih.gov/35565277/)
 
 ## Requirements
+
 - Docker (to build and run pipeline)
 - Output from SBU BMI Cancer and Lymphocyte prediction pipelines
 
 ## Building and running the pipeline
+
 ### Clone the repo
 
 Once you clone/fork/download this repository, set it as your working directory and build the container as below
@@ -21,9 +24,11 @@ docker build -t til_analyses .
 ```
 
 You can then call the alignment and analytics functions.
+
 # Available functions and their outputs
 
 The functionality for this repository is split into two functions, `callAlign.sh` and `callAnalytics.sh`. They should be run in this order, as `callAnalytics.sh` requires output from `callALign.sh`. Please see details below. You can also call their BaSH level help functions using the -h flag after building the container.
+
 ## `callAlign.sh`
 
 This script calls the alignment portion of the pipeline. Assuming appropriate input it will:
@@ -33,7 +38,9 @@ This script calls the alignment portion of the pipeline. Assuming appropriate in
 - Return invasion metrics
 
 ### Input
-- You will need a base directory with two subfolders, each containing the outputs of our prediction pipelines (either txt or json). **Note: If the subdirs are not named exactly like below, you will need to specify the folder name in the align call (see help for how to update path)**
+
+- You will need a base directory with two subfolders, each containing the outputs of our prediction pipelines (either txt or json).
+**Note: If the subdirs are not named exactly like below, you will need to specify the folder name in the align call (see help for how to update path)**
   * tilPreds
   * cancPreds
 - If the file names within the directories are __exactly__ the same, you don't need more information. If they vary, you will need
@@ -42,7 +49,9 @@ This script calls the alignment portion of the pipeline. Assuming appropriate in
     - Col 2 is lymph prediction file name for that sample
     - Col 3 is cancer prediction file name for the same sample
   * For a sample basedir, look at "data_for_sample_run/"
+
 ### Output (will be written to baseDirectory/outputs)
+
 - Histogram of Percent Invasion
 - A csv with 7 columns
   * Sample Name: Col 1 in sampFile or file name
@@ -72,21 +81,29 @@ To see help, run
 ```
 docker run til_analyses callAlign.sh -h
 ```
- To run with default parameters (only works if all prediction files have exact same names), run
+
+To run with default parameters (only works if all prediction files have exact same names), run
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAlign.sh
 ```
+
 If you know the algorithm your lymphocyte predictions were made using, run:
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAlign.sh -a [First letter of algorithm (i,v, or r)]
 ```
+
 If you need to specify sample pairs between Lymph and Canc predictions AND want to write the overlaid maps, run
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAlign.sh -s /path/to/csv (can be relative) -w
 ```
+
 ## `callanalytics.sh`
 
 This script will take the invasion metrics calculated by `callAlign.sh` and calculate:
+
 - Descriptive statistics:
   * Overall Invasion distribution
   * Continuous invasion distribution faceted by variables of interest
@@ -99,7 +116,9 @@ This script will take the invasion metrics calculated by `callAlign.sh` and calc
   * Fully modified Cox regression using scaled invasion and all variables of interest
 
 ### Input
+
 You will need a csv with the following columns
+
 - scaled_PP (output from callAlign)
 - TIL_Class (output from callAlign)
 - variables of interest (can be any valid column name, code will grab all)
@@ -118,6 +137,7 @@ You will need a csv with the following columns
    * -h -- help ## Print help
 
 ### Output
+
 - A pdf or html of descriptive statistics and survival correlations (if requested)
 - A csv of stratification metrics
   * Do we want to write test outcomes for each plot?
@@ -126,19 +146,21 @@ You will need a csv with the following columns
 ### Sample calls
 
 To run using all defaults, run
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh -p CSVFILENAME
 ```
 
 To run with different survival column names
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh -p CSVFILENAME -c censorColname -t timeColName
 ```
 
 To run without survival information
+
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh  -p CSVFILENAME -s FALSE
 ```
-
 
 Happy analyzing! Please report any issues you may find through the issues tab.

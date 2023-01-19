@@ -15,11 +15,12 @@
 Once you clone/fork/download this repository, set it as your working directory and build the container as below
 
 ```
-cd REPO_NAME
+git clone https://github.com/SBU-BMI/til_align.git
+cd til_align
 docker build -t til_analyses .
 ```
 
-You can then call the alignment and analytics functions. 
+You can then call the alignment and analytics functions.
 # Available functions and their outputs
 
 The functionality for this repository is split into two functions, `callAlign.sh` and `callAnalytics.sh`. They should be run in this order, as `callAnalytics.sh` requires output from `callALign.sh`. Please see details below. You can also call their BaSH level help functions using the -h flag after building the container.
@@ -33,7 +34,7 @@ This script calls the alignment portion of the pipeline. Assuming appropriate in
 
 ### Input
 - You will need a base directory with two subfolders, each containing the outputs of our prediction pipelines (either txt or json). **Note: If the subdirs are not named exactly like below, you will need to specify the folder name in the align call (see help for how to update path)**
-  * tilPreds 
+  * tilPreds
   * cancPreds
 - If the file names within the directories are __exactly__ the same, you don't need more information. If they vary, you will need
   * A csv in in basedir, specified with a -s flag in the align call, with
@@ -52,7 +53,7 @@ This script calls the alignment portion of the pipeline. Assuming appropriate in
   * scaled_PP: percent_pos / standard deviation of percent_pos
   * TIL_Class: Binned low vs high around mean invasion value
 
-### Command line options and defaults 
+### Command line options and defaults
 
    * -t -- tilPreds: "tilPreds" ## A directory of lymph predictions (see below)
    * -T -- tilThresh: .5 ## The probability threshold that separates a Lymph call from a no-lymph call (Inception, 0.1; VGG, 0.42; ResNet, 0.5, overwritten by -a)
@@ -79,7 +80,7 @@ If you know the algorithm your lymphocyte predictions were made using, run:
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAlign.sh -a [First letter of algorithm (i,v, or r)]
 ```
-If you need to specify sample pairs between Lymph and Canc predictions AND want to write the overlaid maps, run 
+If you need to specify sample pairs between Lymph and Canc predictions AND want to write the overlaid maps, run
 ```
 docker run -v /PATH/TO/BASEDIR:/data til_analyses callAlign.sh -s /path/to/csv (can be relative) -w
 ```
@@ -107,15 +108,15 @@ You will need a csv with the following columns
   * This code expects __right__ censored data, with 0's indicating censor and 1's indicating event
 - Column of time to event (numeric), whatever your endpoint of choice may be, named **survTime**
   * You may use different colnames for censor and time, but they must be specific in the call (see samples)
-  
-  ### Command line options and defaults 
+
+  ### Command line options and defaults
 
    * -p -- csvPath: "" ## Path to csv to analyze (will assume it is in basedir [/data] of mounted volume)
    * -s -- excludeSurv ## If passed, code will skip survival analyses portion
    * -t -- survTime: "survivalA" ## Column name in csv with time to event
    * -c -- survCensor: .5 ## Column name in csv indicating if patient is censored (0) or has an event (1)
    * -h -- help ## Print help
-   
+
 ### Output
 - A pdf or html of descriptive statistics and survival correlations (if requested)
 - A csv of stratification metrics
@@ -126,7 +127,7 @@ You will need a csv with the following columns
 
 To run using all defaults, run
 ```
-docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh -p CSVFILENAME 
+docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh -p CSVFILENAME
 ```
 
 To run with different survival column names
@@ -136,7 +137,7 @@ docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh -p CSVFILENAM
 
 To run without survival information
 ```
-docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh  -p CSVFILENAME -s FALSE 
+docker run -v /PATH/TO/BASEDIR:/data til_analyses callAnalytics.sh  -p CSVFILENAME -s FALSE
 ```
 
 

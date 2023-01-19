@@ -32,5 +32,6 @@ WORKDIR /code
 COPY scripts_and_docker/ .
 RUN chmod +x *.sh *.R *.rmd
 ENV PATH="/code/":$PATH
+RUN mkdir -p /data
 
 CMD ["/bin/bash"]

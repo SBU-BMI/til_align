@@ -248,6 +248,11 @@ for(j in 1:length(canc)){
    # }
 }
 
+## trim .csv from slideID names
+percent_calls$slideID = gsub(pattern = "\\.csv",
+                             replacement = "",
+                             x = percent_calls$slideID)
+
 ## ==== Save here after loop in case a following line breaks it, don't want to lose progress ====
 write.csv(x = percent_calls,
           file = paste(params$outputDir,params$outputFile, sep = "/"),

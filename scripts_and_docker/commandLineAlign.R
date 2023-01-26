@@ -65,15 +65,38 @@ print(params)
 ### ==== Above is for testing!! comment out ====
 
 
-## ==== Read in files ====
+### ==== Read in files ====
 tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be hardcoded or relative
 canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be hardcoded or relative
 sampNames = tils
-if(!all.equal(tils,canc)){
-   warning("Supplied files do not match. Must be same names and order")
+
+## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
+if(length(setdiff(tils,canc)) > 0){
+   warning("Some cancer-lymph predictions are missing pairs, skipping non-paired samples")
+   print(paste0("Samples missing pairs (up to 6) are: ",
+                head(setdiff(tils,canc)))
+   )
+   tils = intersect(tils,canc)
+   canc = intersect(tils,canc)
 }
-if(length(tils) != length(canc)){
-   warning("Unequal number of til prediction files and cancer prediction files, check your inputs")
+
+## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====
+if(!all.equal(tils,canc)){
+   stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
+}
+
+## ==== This is redundant with the  intersect/setdiff portion above
+# if(length(tils) != length(canc)){
+#    warning("Unequal number of til prediction files and cancer prediction files, check your inputs")
+# }
+
+## ==== Check for read and align format using first entry in both cancer and lymph file lists
+lymphFormatCSV = grepl("csv", tils[1])
+cancFormatCSV = grepl("csv", canc[1])
+
+## ==== If they are different formats, warn but continue. This is likely not an optimal implementation
+if(lymphFormatCSV != cancFormatCSV){
+   warning("Prediction formats for cancer and lymphocyte are different, please double check this is intentional")
 }
 
 # ## ==== Align ====
@@ -91,33 +114,70 @@ for(j in 1:length(canc)){
    # =============================================================
    # Load in and reorder Cancer Annotation File
    # =============================================================
-   C1 = as.data.frame(
-      readr::read_csv(
-         paste(params$cancDir,canc[j], sep = "/"),
-         col_names = T,
-         col_type = cols()
+   if(cancFormatCSV){
+      C1 = as.data.frame(
+         readr::read_csv(
+            paste(params$cancDir,canc[j], sep = "/"),
+            col_names = T,
+            col_type = cols()
+         )
       )
-   )
+      
+      # Order data as required (y then x)
+      C1 = C1[order(C1$miny, C1$minx),]
+      C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
+   } else {
+      C1 = as.data.frame(
+         readr::read_table(
+            paste(params$cancDir,canc[j], sep = "/"),
+            col_names = F,
+            col_type = cols()
+         )
+      )
+      
+      # Data is not ordered by position, fourth column is unnecessary
+      # Fix: order by Y, then X, remove empty column
+      C1 = C1[order(C1$X2, C1$X1),-4]
+      names(C1) = c("X_loc","Y_loc","Prediction")
+      
+      # Identify Cancer patch size
+      C_range = (C1$X_loc[2] - C1$X_loc[1])
+   }
    
-   # Order data as required (y then x)
-   C1 = C1[order(C1$miny, C1$minx),]
-   C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
    
    # =============================================================
    # Find, load, and reorder corresponding TIL Annotation file
    # =============================================================
-   T1 = as.data.frame(
-      readr::read_csv(
-         paste(params$tilDir,tils[j], sep = "/"),
-         col_names = T,
-         col_type = cols()
+   if(lymphFormatCSV){
+      T1 = as.data.frame(
+         readr::read_csv(
+            paste(params$tilDir,tils[j], sep = "/"),
+            col_names = T,
+            col_type = cols()
+         )
       )
-   )
-   
-   # Data is not ordered by position, fourth column is unnecessary
-   # Fix: order by Y, then X, remove empty column
-   T1 = T1[order(T1$miny,T1$minx),]
-   T_range = T1$width[1]
+      
+      # Data is not ordered by position, fourth column is unnecessary
+      # Fix: order by Y, then X, remove empty column
+      T1 = T1[order(T1$miny,T1$minx),]
+      T_range = T1$width[1]
+   } else {
+      T1 = as.data.frame(
+         readr::read_table(
+            paste(params$tilDir,til[j], sep = "/"),
+            col_names = F,
+            col_type = cols()
+         )
+      )
+      
+      # Data is not ordered by position, fourth column is unnecessary
+      # Fix: order by Y, then X, remove empty column
+      T1 = T1[order(T1$X2,T1$X1),-4]
+      names(T1) = c("X_loc","Y_loc","Prediction")
+      
+      # Identify TIL patch size
+      T_range = (T1$X_loc[2] - T1$X_loc[1])
+   }
    
    print(paste0("Sample ", count, ": ", C_range/T_range))
    # ~1.75
@@ -248,7 +308,7 @@ for(j in 1:length(canc)){
    # }
 }
 
-## trim .csv from slideID names
+## trim .csv from slideID names if it exists
 percent_calls$slideID = gsub(pattern = "\\.csv",
                              replacement = "",
                              x = percent_calls$slideID)

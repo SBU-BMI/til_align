@@ -81,9 +81,9 @@ if(length(setdiff(tils,canc)) > 0){
 }
 
 ## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====
-# if(!all.equal(tils,canc)){
-#    stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
-# }
+if(!all.equal(tils,canc)){
+   stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
+}
 
 ## ==== This is redundant with the  intersect/setdiff portion above
 # if(length(tils) != length(canc)){

@@ -200,8 +200,8 @@ for(j in 1:length(canc)){
    # =============================================================
    
    ## Divide patch location by size and round up (Note: WSI-Infer does not report background, range may not reach 0 as min)
-   T1[,2:3] <- ceiling(T1[,2:3]/T_range) ## col 1 is now slideID, x and y are 2 and 3 respectively
-   C1[,2:3] <- ceiling(C1[,2:3]/C_range)
+   T1[,c("minx","miny")] <- ceiling(T1[,c("minx","miny")]/T_range) 
+   C1[,c("minx","miny")] <- ceiling(C1[,c("minx","miny")]/C_range)
    
    # Not all images are perfect squares/rectangles, pad empty locations with 0's to prevent shifts
    t1.maxi <-  max(T1$minx)

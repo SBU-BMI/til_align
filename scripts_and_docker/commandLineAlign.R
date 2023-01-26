@@ -167,7 +167,7 @@ for(j in 1:length(canc)){
    } else {
       T1 = as.data.frame(
          readr::read_table(
-            paste(params$tilDir,til[j], sep = "/"),
+            paste(params$tilDir,tils[j], sep = "/"),
             col_names = F,
             col_type = cols()
          )

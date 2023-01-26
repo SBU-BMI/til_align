@@ -81,6 +81,9 @@ if(length(setdiff(tils,canc)) > 0){
 }
 
 ## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====
+if(length(tils)==0){
+   stop("No predictions had exact pairs. Please ensure lymph and cancer pairs have the exact same name.")
+}
 if(!all.equal(tils,canc)){
    stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
 }

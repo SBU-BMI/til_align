@@ -138,10 +138,10 @@ for(j in 1:length(canc)){
       # Data is not ordered by position, fourth column is unnecessary
       # Fix: order by Y, then X, remove empty column
       C1 = C1[order(C1$X2, C1$X1),-4]
-      names(C1) = c("X_loc","Y_loc","Prediction")
+      names(C1) = c("minx","miny","prob_tumor")
       
       # Identify Cancer patch size
-      C_range = (C1$X_loc[2] - C1$X_loc[1])
+      C_range = (C1$minx[2] - C1$minx[1])
    }
    
    
@@ -173,10 +173,10 @@ for(j in 1:length(canc)){
       # Data is not ordered by position, fourth column is unnecessary
       # Fix: order by Y, then X, remove empty column
       T1 = T1[order(T1$X2,T1$X1),-4]
-      names(T1) = c("X_loc","Y_loc","Prediction")
+      names(T1) = c("minx","miny","prob_tils")
       
       # Identify TIL patch size
-      T_range = (T1$X_loc[2] - T1$X_loc[1])
+      T_range = (T1$minx[2] - T1$minx[1])
    }
    
    print(paste0("Sample ", count, ": ", C_range/T_range))

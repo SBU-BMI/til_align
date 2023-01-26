@@ -73,7 +73,7 @@ sampNames = tils
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
 if(length(setdiff(tils,canc)) > 0){
    warning("Some cancer-lymph predictions are missing pairs, skipping non-paired samples")
-   print(paste0("Samples missing pairs (up to 6) are: ", 
+   print(paste0("Samples missing pairs (up to 6) are: ",
                 head(setdiff(tils,canc)))
    )
    tils = intersect(tils,canc)
@@ -81,9 +81,10 @@ if(length(setdiff(tils,canc)) > 0){
 }
 
 ## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====
-if(!all.equal(tils,canc)){
-   stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
-}
+# if(!all.equal(tils,canc)){
+#    stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
+# }
+
 ## ==== This is redundant with the  intersect/setdiff portion above
 # if(length(tils) != length(canc)){
 #    warning("Unequal number of til prediction files and cancer prediction files, check your inputs")

@@ -333,7 +333,7 @@ for(j in 1:length(canc)){
                        n_TIL_patch = Til_patches,
                        n_TIL_patch_overlap = Cancer_patches_with_til,
                        percent_pos = Cancer_patches_with_til / Cancer_patches,
-                       patchRatio = C_range/T_range,
+                       patch_ratio = C_range/T_range,
                        stringsAsFactors = F)
    
    ## Append

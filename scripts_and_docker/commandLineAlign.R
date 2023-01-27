@@ -375,7 +375,7 @@ suppressMessages(dev.off())
 # =============================================================
 # If provided, join sample level information to TIL output, replace output file with updated output
 if(params$sampInfo != 'blank'){
-   percent_calls = dplyr::full_join(percent_calls,slideID)
+   percent_calls = dplyr::full_join(percent_calls,sampInfo, by = "slideID")
    write.csv(x = percent_calls,
              file = paste(params$outputDir,params$outputFile, sep = "/"),
              row.names = F)

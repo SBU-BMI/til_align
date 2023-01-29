@@ -31,6 +31,10 @@ rmarkdown::render("/code/Descriptive_Statistics.rmd",
                                 nVars = params$nVars,
                                 survTime = params$survTime,
                                 survCensor = params$survCensor),
+                  # Specify the intermediates dir because otherwise it will use /code.
+                  # Using /code will fail in singularity because images are immutable.
+                  # It will also fail in non-sudo docker because /code is owned by root.
+                  intermediates_dir = tempdir(),
                   output_format = params$outputFormat,
                   output_file = "/data/Descriptive_Statistics", knit_root_dir = "/data")
 

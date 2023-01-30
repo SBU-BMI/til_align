@@ -32,11 +32,28 @@ droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexibl
               grep("patch_ratio", colnames(df)),
               grep("*percent_pos", colnames(df)))
 
+## For testing
+# output <- read_csv("../example/sample-tumor-til-survival/output.csv")
+# testDf = as.data.frame(output[grep("prediction", output$slideID),1:8])
+# testDf$slideID = gsub(pattern = "prediction-",
+#                       replacement = "",
+#                       x = testDf$slideID)
+# testDf = dplyr::full_join(testDf, df, by = "slideID")
+
+# sampOnly = as.data.frame(output[grep("prediction", output$slideID, invert = T),
+#                                  c(1,9:12)])
+# 
+# testDf = dplyr::full_join(testDf,
+#                           output[grep("prediction", output$slideID, invert = T),
+#                                  c(1,9:12)], 
+#                           by = "slideID")
+
 ## ==== Check for patients with NA invasion, could be 1) sampInfo given for WSI not predicted or 2) no cancer patches predicted. Notify and remove
-missingTIL = factor("OK", levels = c("OK", "not aligned", "no cancer"))
+missingTIL = factor(rep("OK",nrow(df)), 
+                    levels = c("OK", "not aligned", "no cancer"))
 if(anyNA(df$scaled_PP)){
-   missingTIL[df$n_canc_patch == 0] = "no cancer"
-   missingTIL[is.na(df$n_canc_patch)] = "not aligned"
+   missingTIL[df$n_Canc_patch == 0] = "no cancer"
+   missingTIL[which(is.na(df$n_Canc_patch))] = "not aligned"
 }
 
 ## If none of the above columns exist, don't run the drop
@@ -147,7 +164,7 @@ tmp.df = df
 colnames(tmp.df)[which(colnames(tmp.df)==params$survTime)] = "survTime"
 colnames(tmp.df)[which(colnames(tmp.df)==params$survCensor)] = "survCensor"
 tmp.df$SurvObj <- with(tmp.df, Surv(time = survTime,
-                                    event = survCensor))
+                                    event = survCensor,type = "right"))
 fit <- survfit(SurvObj ~ TIL_Class,
                data = tmp.df,
                type = "kaplan-meier")

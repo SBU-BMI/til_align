@@ -26,7 +26,7 @@ df = df[,-droppable]
 params$nVars = sum(which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime)))
 
 ## Call render
-rmarkdown::render("/code/Descriptive_Statistics.rmd", 
+rmarkdown::render("/tmp/rmarkdowndir/Descriptive_Statistics.rmd",
                   params = list(csvPath = params$csvPath,
                                 nVars = params$nVars,
                                 survTime = params$survTime,
@@ -37,4 +37,3 @@ rmarkdown::render("/code/Descriptive_Statistics.rmd",
                   intermediates_dir = tempdir(),
                   output_format = params$outputFormat,
                   output_file = "/data/Descriptive_Statistics", knit_root_dir = "/data")
-

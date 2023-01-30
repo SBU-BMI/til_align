@@ -346,6 +346,11 @@ percent_calls$slideID = gsub(pattern = "\\.csv",
                              replacement = "",
                              x = percent_calls$slideID)
 
+## Same for the preceding "prediction-"
+percent_calls$slideID = gsub(pattern = "prediction-",
+                             replacement = "",
+                             x = percent_calls$slideID)
+
 ## ==== Save here after loop in case a following line breaks it, don't want to lose progress ====
 write.csv(x = percent_calls,
           file = paste(params$outputDir,params$outputFile, sep = "/"),

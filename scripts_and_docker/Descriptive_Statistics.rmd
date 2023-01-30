@@ -29,7 +29,7 @@ library(survminer)
 df =  as.data.frame(readr::read_csv(file = params$csvPath))
 droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
               grep("*_TIL_patch*", colnames(df)),
-              grep("patch_ratio", colnames(df)),
+              grep("patchRatio", colnames(df)),
               grep("*percent_pos", colnames(df)))
 
 ## For testing

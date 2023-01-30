@@ -33,8 +33,8 @@ droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexibl
               grep("*percent_pos", colnames(df)))
 
 ## ==== Check for patients with NA invasion, could be 1) sampInfo given for WSI not predicted or 2) no cancer patches predicted. Notify and remove
+missingTIL = factor("OK", levels = c("OK", "not aligned", "no cancer"))
 if(anyNA(df$scaled_PP)){
-   missingTIL = factor("OK", levels = c("OK", "not aligned", "no cancer"))
    missingTIL[df$n_canc_patch == 0] = "no cancer"
    missingTIL[is.na(df$n_canc_patch)] = "not aligned"
 }
@@ -65,7 +65,7 @@ In the analyzed dataset, you have provided **`r nrow(df)` samples** to be analyz
 * `r sum(df$TIL_Class == "Low")` Low invasion samples (`r signif((sum(df$TIL_Class == "Low")/nrow(df))*100,digits = 4)`%) and
 * `r sum(df$TIL_Class == "High")` High invasion samples (`r signif((sum(df$TIL_Class == "High")/nrow(df))*100,digits = 4)`%). 
 
-Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples**. Of the missing samples, **`r sum(missingTIL == "no cancer`)** were aligned but had no predicted cancer presence, while **`r sum(missingTIL == "not aligned")`** had sample information provided but no TIL invasion data. Both will be dropped prior to downstream analyses. Below we will compare invasion characteristics across your provided additional features (all additional columns beyond survival, scaled_PP, and TIL_Class) and, if possible, perform some clinical correlations with your outcome information. 
+Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples**. Of the missing samples, **`r sum(missingTIL == "no cancer")`** were aligned but had no predicted cancer presence, while **`r sum(missingTIL == "not aligned")`** had sample information provided but no TIL invasion data. Both will be dropped prior to downstream analyses. Below we will compare invasion characteristics across your provided additional features (all additional columns beyond survival, scaled_PP, and TIL_Class) and, if possible, perform some clinical correlations with your outcome information. 
 
 \newpage
 

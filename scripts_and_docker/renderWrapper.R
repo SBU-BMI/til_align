@@ -19,7 +19,7 @@ df =  as.data.frame(suppressMessages(readr::read_csv(file = params$csvPath)))
 # -- percent_pos
 droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
               grep("*_TIL_patch*", colnames(df)),
-              grep("patch_ratio", colnames(df)),
+              grep("patchRatio", colnames(df)),
               grep("*_percent_pos", colnames(df)))
 
 df = df[,-droppable]

@@ -18,7 +18,8 @@ params = list(algorithm = args[1],
               sampFile = args[6],
               outputFile = args[7],
               outputDir = args[8],
-              writePNG = args[9])
+              writePNG = args[9],
+              sampInfo = args[10])
 
 ## ==== Before anything, flag for missing information ====
 if(params$tilDir == "blank"){
@@ -100,6 +101,35 @@ cancFormatCSV = grepl("csv", canc[1])
 ## ==== If they are different formats, warn but continue. This is likely not an optimal implementation
 if(lymphFormatCSV != cancFormatCSV){
    warning("Prediction formats for cancer and lymphocyte are different, please double check this is intentional")
+}
+
+## ==== read in sampInfo csv ahead of time if provided
+if(params$sampInfo == 'blank'){
+   message("No Sample Information passed, only alignment will be run.")
+} else if(!file.exists(params$sampInfo)){
+   stop(paste0("Sample information file (",
+               params$sampInfo,
+               ") not found, please check path and try again"))
+} else {
+   sampInfo = as.data.frame(
+      readr::read_csv(
+         params$sampInfo,
+         col_names = T,
+         col_type = cols()
+      )
+   )
+   
+   ## ==== enforce expected formatting on sampInfo
+   if(colnames(sampInfo)[1] != "slideID"){
+      warning("First column in sampInfo being coerced to 'slideID' as required. Please double check format of csv with documentation")
+      colnames(sampInfo)[1] = "slideID"
+   }
+   if(!("survivalA" %in% colnames(sampInfo))){ # If no survivalA column found
+      stop("Time to event (survivalA) not provided, please check sampInfo.csv formatting")
+   }
+   if(!("censorA.0yes.1no" %in% colnames(sampInfo))){ # If no censor column found
+      stop("Event status (censorA.0yes.1no) not provided, please check sampInfo.csv formatting")
+   }
 }
 
 # ## ==== Align ====
@@ -303,7 +333,7 @@ for(j in 1:length(canc)){
                        n_TIL_patch = Til_patches,
                        n_TIL_patch_overlap = Cancer_patches_with_til,
                        percent_pos = Cancer_patches_with_til / Cancer_patches,
-                       patchRatio = C_range/T_range,
+                       patch_ratio = C_range/T_range,
                        stringsAsFactors = F)
    
    ## Append
@@ -313,6 +343,11 @@ for(j in 1:length(canc)){
 
 ## trim .csv from slideID names if it exists
 percent_calls$slideID = gsub(pattern = "\\.csv",
+                             replacement = "",
+                             x = percent_calls$slideID)
+
+## Same for the preceding "prediction-"
+percent_calls$slideID = gsub(pattern = "prediction-",
                              replacement = "",
                              x = percent_calls$slideID)
 
@@ -342,4 +377,11 @@ pdf(file = paste0(params$outputDir,"/", "invasion_histogram.pdf"), width = 8, he
 tmp
 suppressMessages(dev.off())
 
-
+# =============================================================
+# If provided, join sample level information to TIL output, replace output file with updated output
+if(params$sampInfo != 'blank'){
+   percent_calls = dplyr::full_join(percent_calls,sampInfo, by = "slideID")
+   write.csv(x = percent_calls,
+             file = paste(params$outputDir,params$outputFile, sep = "/"),
+             row.names = F)
+}

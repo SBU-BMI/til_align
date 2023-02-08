@@ -34,4 +34,10 @@ RUN chmod +x *.sh *.R *.rmd
 ENV PATH="/code/":$PATH
 RUN mkdir -p /data
 
+# Copy this to a writable directory due to
+# https://github.com/rstudio/rmarkdown/issues/1975
+RUN mkdir /tmp/rmarkdowndir/ \
+    && chmod a+rwx /tmp/rmarkdowndir \
+    && cp /code/Descriptive_Statistics.rmd /tmp/rmarkdowndir/
+
 CMD ["/bin/bash"]

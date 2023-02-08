@@ -84,8 +84,8 @@ ggpubr::gghistogram(data = df, x = "scaled_PP", fill = "TIL_Class", binwidth = .
 
 In the analyzed dataset, you have provided **`r nrow(df)` samples** to be analyzed and **`r length(toFacet)` columns** to subdivide the samples. The pipeline calls Low TIL vs High TIL around the **mean** of the dataset **(`r mean(df$scaled_PP, na.rm = T)`)**. This results in:
 
-* `r sum(df$TIL_Class == "Low")` Low invasion samples (`r signif((sum(df$TIL_Class == "Low")/nrow(df))*100,digits = 4)`%) and
-* `r sum(df$TIL_Class == "High")` High invasion samples (`r signif((sum(df$TIL_Class == "High")/nrow(df))*100,digits = 4)`%). 
+* `r sum(df$TIL_Class == "Low", na.rm=T)` Low invasion samples (`r signif((sum(df$TIL_Class == "Low", na.rm=T)/nrow(df))*100,digits = 4)`%) and
+* `r sum(df$TIL_Class == "High", na.rm=T)` High invasion samples (`r signif((sum(df$TIL_Class == "High", na.rm=T)/nrow(df))*100,digits = 4)`%). 
 
 Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples**. Of the missing samples, **`r sum(missingTIL == "no cancer")`** were aligned but had no predicted cancer presence, while **`r sum(missingTIL == "not aligned")`** had sample information provided but no TIL invasion data. Both will be dropped prior to downstream analyses. Below we will compare invasion characteristics across your provided additional features (all additional columns beyond survival, scaled_PP, and TIL_Class) and, if possible, perform some clinical correlations with your outcome information. 
 

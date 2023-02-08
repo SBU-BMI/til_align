@@ -30,7 +30,7 @@ df =  as.data.frame(readr::read_csv(file = params$csvPath))
 toFacet = colnames(df)[which(!colnames(df) %in% c("scaled_PP","TIL_Class",params$survCensor, params$survTime))]
 ```
 
-# Descrpitive Statistics
+# Descriptive Statistics
 
 ## Overall Distribution
 

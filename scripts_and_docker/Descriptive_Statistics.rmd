@@ -25,7 +25,7 @@ library(survminer)
 
 \newpage
 
-```{r load, include = F}
+```{r load and parse, include = F}
 df =  as.data.frame(readr::read_csv(file = params$csvPath))
 droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
               grep("*_TIL_patch*", colnames(df)),
@@ -63,7 +63,12 @@ if(length(droppable) > 0){
 
 
 toFacet = colnames(df)[which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime))]
-
+if(length(toFacet) == 0){ # if there are no additional columns provided,
+   warning("No additional sample information provided beyond survival and TIL. Only univariable analyses will be performed")
+   runFacet = FALSE
+} else {
+   runFacet = TRUE
+}
 ## If both surv columns exist, run survival section
 survExists = params$survTime %in% colnames(df) &
    params$survCensor %in% colnames(df)
@@ -73,14 +78,14 @@ survExists = params$survTime %in% colnames(df) &
 
 ## Overall Distribution
 
-```{r, fig.height = 4}
+```{r overall dist, fig.height = 4}
 ggpubr::gghistogram(data = df, x = "scaled_PP", fill = "TIL_Class", binwidth = .1)
 ```
 
 In the analyzed dataset, you have provided **`r nrow(df)` samples** to be analyzed and **`r length(toFacet)` columns** to subdivide the samples. The pipeline calls Low TIL vs High TIL around the **mean** of the dataset **(`r mean(df$scaled_PP, na.rm = T)`)**. This results in:
 
-* `r sum(df$TIL_Class == "Low")` Low invasion samples (`r signif((sum(df$TIL_Class == "Low")/nrow(df))*100,digits = 4)`%) and
-* `r sum(df$TIL_Class == "High")` High invasion samples (`r signif((sum(df$TIL_Class == "High")/nrow(df))*100,digits = 4)`%). 
+* `r sum(df$TIL_Class == "Low", na.rm=T)` Low invasion samples (`r signif((sum(df$TIL_Class == "Low", na.rm=T)/nrow(df))*100,digits = 4)`%) and
+* `r sum(df$TIL_Class == "High", na.rm=T)` High invasion samples (`r signif((sum(df$TIL_Class == "High", na.rm=T)/nrow(df))*100,digits = 4)`%). 
 
 Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples**. Of the missing samples, **`r sum(missingTIL == "no cancer")`** were aligned but had no predicted cancer presence, while **`r sum(missingTIL == "not aligned")`** had sample information provided but no TIL invasion data. Both will be dropped prior to downstream analyses. Below we will compare invasion characteristics across your provided additional features (all additional columns beyond survival, scaled_PP, and TIL_Class) and, if possible, perform some clinical correlations with your outcome information. 
 
@@ -92,7 +97,7 @@ Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples
 
 Here we test if invasion class is independent of your variable of interest using a chi-squared test
 
-```{r}
+```{r class with facet, eval=runFacet}
 ## Remove those with missing TIL info
 df = df[which(missingTIL == "OK"),]
 plots = list()
@@ -127,7 +132,7 @@ x
 
 For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.
 
-```{r}
+```{r continuous with facet, eval=runFacet}
 plots = list()
 for(i in toFacet){
    if(length(levels(as.factor(df[,i]))) > 2){
@@ -159,7 +164,7 @@ For the Kaplan-Meier section, TIL Class is used to categorize samples and the lo
 
 ### Univariate
 
-```{r, fig.height = 6, eval = survExists}
+```{r km univar, fig.height = 6, eval = survExists}
 tmp.df = df
 colnames(tmp.df)[which(colnames(tmp.df)==params$survTime)] = "survTime"
 colnames(tmp.df)[which(colnames(tmp.df)==params$survCensor)] = "survCensor"
@@ -185,7 +190,7 @@ km
 
 ### By Vars of Interest
 
-```{r, fig.height = 8, fig.width = 12, eval = survExists}
+```{r km facet, fig.height = 8, fig.width = 12, eval = survExists & runFacet}
 plots = list()
 for(i in toFacet){
    km = ggsurvplot_facet(fit,
@@ -211,7 +216,7 @@ For the Cox regression section, both TIL Class (categorical) and scaled_PP (cont
 
 ### Univariate Categorical
 
-```{r, fig.height = 3, fig.width = 8, eval = survExists}
+```{r cox cat univar, fig.height = 3, fig.width = 8, eval = survExists}
 tmp.df$TIL_Class = factor(tmp.df$TIL_Class, levels = c("Low","High"))
 fit.coxph <- coxph(Surv(time = tmp.df$survTime,
                         event = tmp.df$survCensor,
@@ -222,7 +227,7 @@ x
 
 ### Univariate Continuous
 
-```{r, fig.height = 2, fig.width = 8, eval = survExists}
+```{r cox cont univar, fig.height = 2, fig.width = 8, eval = survExists}
 fit.coxph <- coxph(Surv(time = tmp.df$survTime,
                         event = tmp.df$survCensor,
                         type = "right") ~ scaled_PP, data = tmp.df)
@@ -232,7 +237,7 @@ x
 
 ### By Vars of Interest (one at a time)
 
-```{r, fig.width = 8, eval = survExists}
+```{r cox bivar, fig.width = 8, eval = survExists & runFacet}
 plots = list()
 for(i in toFacet){
    newTmp = tmp.df
@@ -248,7 +253,7 @@ ggarrange(plotlist = plots, nrow = length(toFacet))
 
 ### Multivariable Cox (all features)
 
-```{r, fig.width = 8, eval = survExists}
+```{r cox multivar, fig.width = 8, eval = survExists & runFacet}
 newTmp = tmp.df[,c("scaled_PP", "SurvObj", toFacet)]
 fit.coxph <- coxph(SurvObj ~ ., data = newTmp)
 x = ggforest(fit.coxph, data = newTmp, main = "All Var")

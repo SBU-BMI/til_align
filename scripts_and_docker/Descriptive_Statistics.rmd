@@ -63,7 +63,12 @@ if(length(droppable) > 0){
 
 
 toFacet = colnames(df)[which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime))]
-
+if(length(toFacet) == 0){ # if there are no additional columns provided,
+   warning("No additional sample information provided beyond survival and TIL. Only univariable analyses will be performed")
+   runFacet = FALSE
+} else {
+   runFacet = TRUE
+}
 ## If both surv columns exist, run survival section
 survExists = params$survTime %in% colnames(df) &
    params$survCensor %in% colnames(df)
@@ -92,7 +97,7 @@ Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples
 
 Here we test if invasion class is independent of your variable of interest using a chi-squared test
 
-```{r}
+```{r, eval=runFacet}
 ## Remove those with missing TIL info
 df = df[which(missingTIL == "OK"),]
 plots = list()
@@ -127,7 +132,7 @@ x
 
 For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.
 
-```{r}
+```{r, eval=runFacet}
 plots = list()
 for(i in toFacet){
    if(length(levels(as.factor(df[,i]))) > 2){
@@ -185,7 +190,7 @@ km
 
 ### By Vars of Interest
 
-```{r, fig.height = 8, fig.width = 12, eval = survExists}
+```{r, fig.height = 8, fig.width = 12, eval = survExists & runFacet}
 plots = list()
 for(i in toFacet){
    km = ggsurvplot_facet(fit,
@@ -232,7 +237,7 @@ x
 
 ### By Vars of Interest (one at a time)
 
-```{r, fig.width = 8, eval = survExists}
+```{r, fig.width = 8, eval = survExists & runFacet}
 plots = list()
 for(i in toFacet){
    newTmp = tmp.df
@@ -248,7 +253,7 @@ ggarrange(plotlist = plots, nrow = length(toFacet))
 
 ### Multivariable Cox (all features)
 
-```{r, fig.width = 8, eval = survExists}
+```{r, fig.width = 8, eval = survExists & runFacet}
 newTmp = tmp.df[,c("scaled_PP", "SurvObj", toFacet)]
 fit.coxph <- coxph(SurvObj ~ ., data = newTmp)
 x = ggforest(fit.coxph, data = newTmp, main = "All Var")

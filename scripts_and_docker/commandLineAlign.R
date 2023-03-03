@@ -69,12 +69,28 @@ print(params)
 ### ==== Read in files ====
 tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be hardcoded or relative
 canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be hardcoded or relative
-sampNames = tils
+
+## ==== Drop extraneous files ("color-*" and "*.low_res") ====
+tils = tils[grep("^prediction", tils)]
+writeLines(" . . . Dropping low_res and color- files . . . ")
+if(grepl("low_res", tils)){
+   tils = tils[-grep("low_res", tils)]
+}
+
+canc = canc[grep("^prediction", canc)]
+if(grepl("low_res", canc)){
+   canc = canc[-grep("low_res", canc)]
+}
+
+
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
+sampNames = tils
+writeLines(" . . . Checking for tumor/lymph pairs . . . ")
 if(length(setdiff(tils,canc)) > 0){
    warning("Some cancer-lymph predictions are missing pairs, skipping non-paired samples")
-   print(paste0("Samples missing pairs (up to 6) are: ",
+   writeLines(paste0(length(setdiff(tils,canc)," out of ", length(tils)," are missing pairs. They will be dropped")))
+   writeLines(paste0("Samples missing pairs (up to first 6) are: ",
                 head(setdiff(tils,canc)))
    )
    tils = intersect(tils,canc)

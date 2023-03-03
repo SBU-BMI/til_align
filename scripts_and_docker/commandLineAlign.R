@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript --vanilla
+#!/usr/bin/env -S Rscript --vanilla
 
 library(abind,quietly = T)
 library(plyr,quietly = T)

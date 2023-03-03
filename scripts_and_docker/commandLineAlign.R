@@ -127,6 +127,7 @@ if(params$sampInfo == 'blank'){
                params$sampInfo,
                ") not found, please check path and try again"))
 } else {
+   ## ==== Read in extra sample Info ====
    sampInfo = as.data.frame(
       readr::read_csv(
          params$sampInfo,
@@ -136,9 +137,8 @@ if(params$sampInfo == 'blank'){
    )
    
    ## ==== enforce expected formatting on sampInfo
-   if(colnames(sampInfo)[1] != "slideID"){
-      warning("First column in sampInfo being coerced to 'slideID' as required. Please double check format of csv with documentation")
-      colnames(sampInfo)[1] = "slideID"
+   if(!("slideID" %in% colnames(sampInfo))){ 
+      stop("slideID column not found, please check sampInfo.csv formatting")
    }
    if(!("survivalA" %in% colnames(sampInfo))){ # If no survivalA column found
       stop("Time to event (survivalA) not provided, please check sampInfo.csv formatting")

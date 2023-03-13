@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript --vanilla
+#!/usr/bin/env -S Rscript --vanilla
 
 library(abind,quietly = T)
 library(plyr,quietly = T)
@@ -53,15 +53,15 @@ print("=========== Params after R parsing, if any misalignment please check your
 print(params)
 
 ### ==== For testing!! comment out ====
-# params = list(tilDir = "./scripts_and_docker/data_for_sample_run/tilPreds",
+# params = list(tilDir = "./tilPreds",
 #               tilThresh = 0.1,
-#               cancDir = "./scripts_and_docker/data_for_sample_run/cancPreds",
+#               cancDir = "./cancPreds",
 #               cancThresh = 0.5,
+#               sampInfo = "sampInfo.csv",
 #               #sampFile = "/datadrive/shared/image_analysis/ML_output/extdata/flexible_testDir/sampFileShort.csv",
 #               outputFile = "Percent_Invasion.csv",
 #               outputDir = "outputs",
 #               writePNG = T)
-# tils = "TCGA-3C-AALI-01Z-00-DX1.F6E9A5DF-D8FB-45CF-B4BD-C6B76294C291.csv"
 # canc = tils
 ### ==== Above is for testing!! comment out ====
 
@@ -69,16 +69,34 @@ print(params)
 ### ==== Read in files ====
 tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be hardcoded or relative
 canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be hardcoded or relative
-sampNames = tils
+
+## ==== Drop extraneous files ("color-*" and "*.low_res") ====
+tils = tils[grep("^prediction", tils)]
+writeLines(" . . . Dropping low_res and color- files . . . ")
+if(any(grepl("low_res", tils))){
+   tils = tils[-grep("low_res", tils)]
+}
+
+canc = canc[grep("^prediction", canc)]
+if(any(grepl("low_res", canc))){
+   canc = canc[-grep("low_res", canc)]
+}
+
+
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
+sampNames = tils
+writeLines(" . . . Checking for tumor/lymph pairs . . . ")
 if(length(setdiff(tils,canc)) > 0){
    warning("Some cancer-lymph predictions are missing pairs, skipping non-paired samples")
-   print(paste0("Samples missing pairs (up to 6) are: ",
+   writeLines(paste0(length(setdiff(tils,canc)," out of ", length(tils)," are missing pairs. They will be dropped")))
+   writeLines(paste0("Samples missing pairs (up to first 6) are: ",
                 head(setdiff(tils,canc)))
    )
    tils = intersect(tils,canc)
-   canc = intersect(tils,canc)
+   canc = intersect(canc,tils)
+} else {
+   writeLines(" . . . All files have pairs . . . ")
 }
 
 ## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====
@@ -111,6 +129,7 @@ if(params$sampInfo == 'blank'){
                params$sampInfo,
                ") not found, please check path and try again"))
 } else {
+   ## ==== Read in extra sample Info ====
    sampInfo = as.data.frame(
       readr::read_csv(
          params$sampInfo,
@@ -120,9 +139,8 @@ if(params$sampInfo == 'blank'){
    )
    
    ## ==== enforce expected formatting on sampInfo
-   if(colnames(sampInfo)[1] != "slideID"){
-      warning("First column in sampInfo being coerced to 'slideID' as required. Please double check format of csv with documentation")
-      colnames(sampInfo)[1] = "slideID"
+   if(!("slideID" %in% colnames(sampInfo))){ 
+      stop("slideID column not found, please check sampInfo.csv formatting")
    }
    if(!("survivalA" %in% colnames(sampInfo))){ # If no survivalA column found
       stop("Time to event (survivalA) not provided, please check sampInfo.csv formatting")

@@ -85,7 +85,6 @@ if(any(grepl("low_res", canc))){
 
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
-sampNames = tils
 writeLines(" . . . Checking for tumor/lymph pairs . . . ")
 
 if(length(setdiff(tils,canc)) > 0 | length(setdiff(canc,tils)) > 0){
@@ -344,7 +343,7 @@ for(j in 1:length(canc)){
          dir.create(paste0(params$outputDir,"/PNGs"))
       }
       png::writePNG(target = paste0(params$outputDir,"/PNGs/",
-                                    sampNames[j],'.thresh.png'),
+                                    tils[j],'.thresh.png'),
                     image = my.rgb)
    }
    # =============================================================
@@ -356,7 +355,7 @@ for(j in 1:length(canc)){
                                     Tdat >= params$tilThresh) # how many predicted both
    
    ## Arrange
-   output = data.frame(slideID = sampNames[j],
+   output = data.frame(slideID = tils[j],
                        n_Canc_patch = Cancer_patches,
                        n_TIL_patch = Til_patches,
                        n_TIL_patch_overlap = Cancer_patches_with_til,

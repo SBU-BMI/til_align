@@ -53,15 +53,15 @@ print("=========== Params after R parsing, if any misalignment please check your
 print(params)
 
 ### ==== For testing!! comment out ====
-# params = list(tilDir = "./scripts_and_docker/data_for_sample_run/tilPreds",
+# params = list(tilDir = "./tilPreds",
 #               tilThresh = 0.1,
-#               cancDir = "./scripts_and_docker/data_for_sample_run/cancPreds",
+#               cancDir = "./cancPreds",
 #               cancThresh = 0.5,
+#               sampInfo = "sampInfo.csv",
 #               #sampFile = "/datadrive/shared/image_analysis/ML_output/extdata/flexible_testDir/sampFileShort.csv",
 #               outputFile = "Percent_Invasion.csv",
 #               outputDir = "outputs",
 #               writePNG = T)
-# tils = "TCGA-3C-AALI-01Z-00-DX1.F6E9A5DF-D8FB-45CF-B4BD-C6B76294C291.csv"
 # canc = tils
 ### ==== Above is for testing!! comment out ====
 
@@ -73,12 +73,12 @@ canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be ha
 ## ==== Drop extraneous files ("color-*" and "*.low_res") ====
 tils = tils[grep("^prediction", tils)]
 writeLines(" . . . Dropping low_res and color- files . . . ")
-if(grepl("low_res", tils)){
+if(any(grepl("low_res", tils))){
    tils = tils[-grep("low_res", tils)]
 }
 
 canc = canc[grep("^prediction", canc)]
-if(grepl("low_res", canc)){
+if(any(grepl("low_res", canc))){
    canc = canc[-grep("low_res", canc)]
 }
 
@@ -94,7 +94,9 @@ if(length(setdiff(tils,canc)) > 0){
                 head(setdiff(tils,canc)))
    )
    tils = intersect(tils,canc)
-   canc = intersect(tils,canc)
+   canc = intersect(canc,tils)
+} else {
+   writeLines(" . . . All files have pairs . . . ")
 }
 
 ## ==== After removing unequal pairs, make sure that files are a 1 to 1 ordered match. No duplicates or differences whatsoever ====

@@ -53,6 +53,7 @@ print("=========== Params after R parsing, if any misalignment please check your
 print(params)
 
 ### ==== For testing!! comment out ====
+# setwd("./example/")
 # params = list(tilDir = "./tilPreds",
 #               tilThresh = 0.1,
 #               cancDir = "./cancPreds",
@@ -62,7 +63,6 @@ print(params)
 #               outputFile = "Percent_Invasion.csv",
 #               outputDir = "outputs",
 #               writePNG = T)
-# canc = tils
 ### ==== Above is for testing!! comment out ====
 
 
@@ -85,14 +85,23 @@ if(any(grepl("low_res", canc))){
 
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
-sampNames = tils
 writeLines(" . . . Checking for tumor/lymph pairs . . . ")
-if(length(setdiff(tils,canc)) > 0){
+
+if(length(setdiff(tils,canc)) > 0 | length(setdiff(canc,tils)) > 0){
    warning("Some cancer-lymph predictions are missing pairs, skipping non-paired samples")
-   writeLines(paste0(length(setdiff(tils,canc)," out of ", length(tils)," are missing pairs. They will be dropped")))
-   writeLines(paste0("Samples missing pairs (up to first 6) are: ",
-                head(setdiff(tils,canc)))
-   )
+   ## Check for Lymph is present but Cancer is missing
+   if(length(setdiff(tils,canc)) > 0){
+      writeLines(paste0(length(setdiff(tils,canc))," out of ", length(tils)," provided samples have Lymph predictions but no Cancer predictions. They will be dropped"))
+      writeLines(paste0("Lymph samples missing Cancer pairs (up to first 6) are: 
+                     ",
+                        head(setdiff(tils,canc))))
+   }
+   if(length(setdiff(canc,tils))){
+      writeLines(paste0(length(setdiff(canc,tils))," out of ", length(canc)," provided samples have Cancer predictions but no Lymph predictions. They will be dropped"))
+      writeLines(paste0("Cancer samples missing Lymph pairs (up to first 6) are: 
+                     ",
+                        head(setdiff(canc,tils))))
+   }
    tils = intersect(tils,canc)
    canc = intersect(canc,tils)
 } else {
@@ -334,7 +343,7 @@ for(j in 1:length(canc)){
          dir.create(paste0(params$outputDir,"/PNGs"))
       }
       png::writePNG(target = paste0(params$outputDir,"/PNGs/",
-                                    sampNames[j],'.thresh.png'),
+                                    tils[j],'.thresh.png'),
                     image = my.rgb)
    }
    # =============================================================
@@ -346,7 +355,7 @@ for(j in 1:length(canc)){
                                     Tdat >= params$tilThresh) # how many predicted both
    
    ## Arrange
-   output = data.frame(slideID = sampNames[j],
+   output = data.frame(slideID = tils[j],
                        n_Canc_patch = Cancer_patches,
                        n_TIL_patch = Til_patches,
                        n_TIL_patch_overlap = Cancer_patches_with_til,

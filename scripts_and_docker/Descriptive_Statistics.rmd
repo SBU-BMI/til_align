@@ -33,20 +33,10 @@ droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexibl
               grep("*percent_pos", colnames(df)))
 
 ## For testing
-# output <- read_csv("../example/sample-tumor-til-survival/output.csv")
-# testDf = as.data.frame(output[grep("prediction", output$slideID),1:8])
-# testDf$slideID = gsub(pattern = "prediction-",
-#                       replacement = "",
-#                       x = testDf$slideID)
-# testDf = dplyr::full_join(testDf, df, by = "slideID")
-
-# sampOnly = as.data.frame(output[grep("prediction", output$slideID, invert = T),
-#                                  c(1,9:12)])
-# 
-# testDf = dplyr::full_join(testDf,
-#                           output[grep("prediction", output$slideID, invert = T),
-#                                  c(1,9:12)], 
-#                           by = "slideID")
+# params = list(csvPath = "../example/outputs/Percent_Invasion.csv",
+#               nVars = 2,
+#               survCensor = "censorA.0yes.1no",
+#               survTime = "survivalA")
 
 ## ==== Check for patients with NA invasion, could be 1) sampInfo given for WSI not predicted or 2) no cancer patches predicted. Notify and remove
 missingTIL = factor(rep("OK",nrow(df)), 
@@ -221,7 +211,8 @@ tmp.df$TIL_Class = factor(tmp.df$TIL_Class, levels = c("Low","High"))
 fit.coxph <- coxph(Surv(time = tmp.df$survTime,
                         event = tmp.df$survCensor,
                         type = "right") ~ TIL_Class, data = tmp.df)
-if(anyNA(summary(fit.coxph)$conf.int)){
+confInts = summary(fit.coxph)$conf.int
+if(anyNA(confInts) | any(is.infinite(confInts))){
    message(" . . . Cox confidence interval too wide to plot, returning summary of fit instead . . . ")
    print(summary(fit.coxph))
 } else{
@@ -237,7 +228,8 @@ if(anyNA(summary(fit.coxph)$conf.int)){
 fit.coxph <- coxph(Surv(time = tmp.df$survTime,
                         event = tmp.df$survCensor,
                         type = "right") ~ scaled_PP, data = tmp.df)
-if(anyNA(summary(fit.coxph)$conf.int)){
+confInts = summary(fit.coxph)$conf.int
+if(anyNA(confInts) | any(is.infinite(confInts))){
    message(" . . . Cox confidence interval too wide to plot, returning summary of fit instead . . . ")
    print(summary(fit.coxph))
 } else{
@@ -257,9 +249,10 @@ for(i in toFacet){
    toUse = paste0("scaled_PP+",i)
    fit.coxph = reformulate(toUse, fit.coxph[[2]])
    fit.coxph = coxph(fit.coxph, data = newTmp)
-   
-   if(anyNA(summary(fit.coxph)$conf.int)){
-      message(paste0(" . . . Cox confidence interval too wide to plot for ",i, " skipping . . . "))
+   confInts = summary(fit.coxph)$conf.int
+   if(anyNA(confInts) | any(is.infinite(confInts))){ ## If plot would fail, skip it.
+      message(paste0(" . . . Cox confidence interval too wide to plot for 'Invasion + ",i, "' returning summary of fit instead . . . "))
+      print(summary(fit.coxph))
    } else{
       plots[[i]] = ggforest(fit.coxph, data = newTmp, main = paste0("Bivariate with ", i))
    }
@@ -274,7 +267,8 @@ if(length(plots) > 0){
 ```{r cox multivar, fig.width = 8, eval = survExists & runFacet}
 newTmp = tmp.df[,c("scaled_PP", "SurvObj", toFacet)]
 fit.coxph <- coxph(SurvObj ~ ., data = newTmp)
-if(anyNA(summary(fit.coxph)$conf.int)){
+confInts = summary(fit.coxph)$conf.int
+if(anyNA(confInts) | any(is.infinite(confInts))){ ## If plot would fail, skip it.
    message(" . . . Cox confidence interval too wide to plot for multivar, returning summary of fit instead . . . ")
    print(summary(fit.coxph))
 } else{

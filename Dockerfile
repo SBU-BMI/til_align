@@ -2,6 +2,7 @@ FROM rocker/r-ver:4.2.1
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
+        cmake \
         libcurl4-openssl-dev \
         libproj15 \
         libgdal-dev \
@@ -11,7 +12,7 @@ RUN apt-get update \
         texlive-latex-extra \
     && rm -rf /var/lib/apt/lists/*
 
-RUN install2.r --error --skipinstalled \
+RUN install2.r --error --skipinstalled --ncpus 4 \
         abind \
         curl \
         plyr \

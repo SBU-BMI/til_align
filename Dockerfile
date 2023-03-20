@@ -2,6 +2,7 @@ FROM rocker/r-ver:4.2.1
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
+        cmake \
         libcurl4-openssl-dev \
         libproj15 \
         libgdal-dev \

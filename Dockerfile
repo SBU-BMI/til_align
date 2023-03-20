@@ -11,7 +11,7 @@ RUN apt-get update \
         texlive-latex-extra \
     && rm -rf /var/lib/apt/lists/*
 
-RUN install2.r --error --skipinstalled --ncpus=-1 \
+RUN install2.r --error --skipinstalled --ncpus -1 \
         abind \
         curl \
         plyr \

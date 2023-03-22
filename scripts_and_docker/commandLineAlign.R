@@ -239,7 +239,7 @@ for(j in 1:length(canc)){
       T_range = (T1$minx[2] - T1$minx[1])
    }
    
-   print(paste0("Sample ", count, ": ", C_range/T_range))
+   print(paste0("Sample ", count, " (",tils[j],"): ", C_range/T_range))
    # ~1.75
    
    ##=== Get LCM for scaling, for now, only get this for first WSI pair ===

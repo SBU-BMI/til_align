@@ -55,16 +55,18 @@ print(params)
 ### ==== For testing!! comment out ====
 # setwd("./example/")
 # params = list(tilDir = "./tilPreds",
+#               #tilDir = "/datadrive/shared/image_analysis/SEERky_test/til",
 #               tilThresh = 0.1,
 #               cancDir = "./cancPreds",
+#               #cancDir = "/datadrive/shared/image_analysis/SEERky_test/tumor",
 #               cancThresh = 0.5,
 #               sampInfo = "sampInfo.csv",
+#               #sampInfo = "/datadrive/shared/image_analysis/SEERky_test/clinical_data.csv",
 #               #sampFile = "/datadrive/shared/image_analysis/ML_output/extdata/flexible_testDir/sampFileShort.csv",
 #               outputFile = "Percent_Invasion.csv",
 #               outputDir = "outputs",
 #               writePNG = T)
 ### ==== Above is for testing!! comment out ====
-
 
 ### ==== Read in files ====
 tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be hardcoded or relative
@@ -161,92 +163,280 @@ if(params$sampInfo == 'blank'){
 
 # ## ==== Align ====
 # Initialize empty data frame for output
-percent_calls <- data.frame(slideID = "Not Run",
+percent_calls <- data.frame(slideID = canc,
                             n_Canc_patch = numeric(length = length(canc)),
                             n_TIL_patch = numeric(length = length(canc)),
                             n_TIL_patch_overlap = numeric(length = length(canc)),
                             percent_pos = numeric(length = length(canc)),
                             patchRatio = numeric(length = length(canc)),
                             stringsAsFactors = F)
+
+
+### ==== Define functions to facilitate tryCatch approaches
+loadAndSort <- function(whichPred){
+   ## ============================================
+   ## === Run Cancer prediction load and parse ===
+   ## ============================================
+   if(whichPred == "Canc"){
+      out <- tryCatch({
+         if(cancFormatCSV){
+            C1 = as.data.frame(
+               readr::read_csv(
+                  paste(params$cancDir,canc[j], sep = "/"),
+                  col_names = T,
+                  col_type = cols()
+               )
+            )
+            
+            # Order data as required (y then x)
+            C1 = C1[order(C1$miny, C1$minx),]
+            C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
+         } else {
+            C1 = as.data.frame(
+               readr::read_table(
+                  paste(params$cancDir,canc[j], sep = "/"),
+                  col_names = F,
+                  col_type = cols()
+               )
+            )
+            
+            # Data is not ordered by position, fourth column is unnecessary
+            # Fix: order by Y, then X, remove empty column
+            C1 = C1[order(C1$X2, C1$X1),-4]
+            names(C1) = c("minx","miny","prob_tumor")
+            C1
+         }
+      },
+      error=function(cond) {
+         message(paste0("Error upon C1 Loading. Original error message:\n",
+                        cond,
+                        "\nSkipping to next sample")
+         )
+         # Choose a return value in case of error
+         return(NULL)
+      })
+   } else {
+      out <- tryCatch({
+         ## ============================================
+         ## === Run Lymph prediction load and parse ===
+         ## ============================================
+         if(lymphFormatCSV){
+            T1 = as.data.frame(
+               readr::read_csv(
+                  paste(params$tilDir,tils[j], sep = "/"),
+                  col_names = T,
+                  col_type = cols()
+               )
+            )
+            
+            # Data is not ordered by position, fourth column is unnecessary
+            # Fix: order by Y, then X, remove empty column
+            T1 = T1[order(T1$miny,T1$minx),]
+            T_range = T1$width[1]
+         } else {
+            T1 = as.data.frame(
+               readr::read_table(
+                  paste(params$tilDir,tils[j], sep = "/"),
+                  col_names = F,
+                  col_type = cols()
+               )
+            )
+            # Data is not ordered by position, fourth column is unnecessary
+            # Fix: order by Y, then X, remove empty column
+            T1 = T1[order(T1$X2,T1$X1),-4]
+            names(T1) = c("minx","miny","prob_tils")
+            T1
+         }
+      },
+      error=function(cond) {
+         message(paste0("Error upon T1 Loading. Original error message:\n",
+                        cond,
+                        "\nSkipping to next sample")
+         )
+         # Choose a return value in case of error
+         return(NULL)
+      })
+   }
+   return(out)
+}
+
+rasterAndResize <- function(whichPred){
+   if(whichPred == "Canc"){
+      out <- tryCatch({
+         # =============================================================
+         # Print blank padded matrix (account for non-square images)
+         # =============================================================
+         C2 <- matrix(0, nrow = c1.maxj, ncol = c1.maxi)
+         
+         # =============================================================
+         # Fill patches with scaled and padded prediction values - will be different dimensions - only fills in patches with predictions -- then convert to raster for interpolation
+         # =============================================================
+         for(el in 1:nrow(C1)){
+            C2[C1$miny[el],C1$minx[el]] <- C1$prob_tumor[el]
+         }
+         rC <- raster(C2)
+         
+         # =============================================================
+         # Scale using num/denom factor to full size overlapping images - use raster for nearest-neighbor interpolation
+         # =============================================================
+         temp_dim <- raster(nrows = nrow(C2)*numerator,
+                            ncols = ncol(C2)*numerator)
+         
+         crs(temp_dim) = NA
+         extent(temp_dim) <- extent(c(0, 1, 0, 1))
+         C_resized = (raster::resample(x = rC,y = temp_dim, method = 'ngb'))
+         as.matrix(C_resized)
+      },
+      error=function(cond) {
+         message(paste0("Error upon Cdat resizing. Original error message:\n",
+                        cond,
+                        "\n Skipping to next sample")
+         )
+         
+         
+         # Choose a return value in case of error
+         return(NULL)
+      })
+   } else{
+      out <- tryCatch({
+         # =============================================================
+         # Print blank padded matrix (account for non-square images)
+         # =============================================================
+         T2 <- matrix(0, nrow = t1.maxj, ncol = t1.maxi)
+         
+         # =============================================================
+         # Fill patches with scaled and padded prediction values - will be different dimensions - only fills in patches with predictions -- then convert to raster for interpolation
+         # =============================================================
+         for(el in 1:nrow(T1)){
+            T2[T1$miny[el],T1$minx[el]] <- T1$prob_tils[el]
+         }
+         rT <- raster(T2)
+         
+         # =============================================================
+         # Scale using num/denom factor to full size overlapping images - use raster for nearest-neighbor interpolation
+         # =============================================================
+         temp_dim <- raster(nrows = nrow(T2)*denom,
+                            ncols = ncol(T2)*denom)
+         crs(temp_dim) = NA
+         extent(temp_dim) <- extent(c(0, 1, 0, 1))
+         T_resized = (raster::resample(x = rT,y = temp_dim, method = 'ngb'))
+         as.matrix(T_resized)
+      },
+      error=function(cond) {
+         message(paste0("Error upon Tdat resizing. Original error message:\n",
+                        cond,
+                        "\n Skipping to next sample")
+         )
+         return(NULL)
+      })
+   }
+   return(out)
+}
+
+writePNGs <- function(){
+   ## Threshold predictions
+   Cdat_thresh = (Cdat >= params$cancThresh)
+   Tdat_thresh = (Tdat >= params$tilThresh)
+   
+   ## Make rgb matrix
+   my.rgb <- abind(Tdat_thresh, ## R matrix
+                   matrix(0,  ## empty G matrix
+                          nrow = nrow(Cdat_thresh),
+                          ncol = ncol(Cdat_thresh)),
+                   Cdat_thresh, ## B matrix
+                   along = 3)
+   
+   ##write files
+   if(!dir.exists(paste0(params$outputDir,"/PNGs"))){
+      dir.create(paste0(params$outputDir,"/PNGs"))
+   }
+   png::writePNG(target = paste0(params$outputDir,"/PNGs/",
+                                 tils[j],'.thresh.png'),
+                 image = my.rgb)
+}
+
+calculateAlignment <- function(){
+   out <- tryCatch({
+      Cancer_patches = sum(Cdat >= params$cancThresh) ## How many predicted canc?
+      Til_patches = sum(Tdat >= params$tilThresh) # How many predicted Lymph
+      Cancer_patches_with_til = sum(Cdat >= params$cancThresh &
+                                       Tdat >= params$tilThresh) # how many predicted both
+      
+      ## Arrange
+      data.frame(slideID = tils[j],
+                 n_Canc_patch = Cancer_patches,
+                 n_TIL_patch = Til_patches,
+                 n_TIL_patch_overlap = Cancer_patches_with_til,
+                 percent_pos = Cancer_patches_with_til / Cancer_patches,
+                 patch_ratio = C_range/T_range,
+                 stringsAsFactors = F)
+   },
+   error=function(cond) {
+      message(paste0("Error upon alignment calculation. Original error message:\n",
+                     cond,
+                     "\n Returning NA and starting next sample")
+      )
+      # Choose a return value in case of error
+      return(data.frame(slideID = tils[j],
+                        n_Canc_patch = NA,
+                        n_TIL_patch = NA,
+                        n_TIL_patch_overlap = NA,
+                        percent_pos = NA,
+                        patch_ratio = NA,
+                        stringsAsFactors = F)
+      )
+   })
+   return(out)
+}
+
+writeLines(paste0(" . . . Running alignment and analyses for ", length(canc), " samples . . . "))
+
 count = 0
+FLAG = F
 for(j in 1:length(canc)){
+   writeLines(paste0("============================================= \n",
+                     "# Processing ", tils[j], " # \n", 
+                     "============================================="))
    count = count + 1
    # =============================================================
    # Load in and reorder Cancer Annotation File
    # =============================================================
-   if(cancFormatCSV){
-      C1 = as.data.frame(
-         readr::read_csv(
-            paste(params$cancDir,canc[j], sep = "/"),
-            col_names = T,
-            col_type = cols()
-         )
-      )
-      
-      # Order data as required (y then x)
-      C1 = C1[order(C1$miny, C1$minx),]
-      C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
-   } else {
-      C1 = as.data.frame(
-         readr::read_table(
-            paste(params$cancDir,canc[j], sep = "/"),
-            col_names = F,
-            col_type = cols()
-         )
-      )
-      
-      # Data is not ordered by position, fourth column is unnecessary
-      # Fix: order by Y, then X, remove empty column
-      C1 = C1[order(C1$X2, C1$X1),-4]
-      names(C1) = c("minx","miny","prob_tumor")
-      
-      # Identify Cancer patch size
-      C_range = (C1$minx[2] - C1$minx[1])
+   C1 <- loadAndSort("Canc")
+   if(is.null(C1)){
+      percent_calls[j,2:ncol(percent_calls)] = NA
+      next
    }
    
+   # Identify and log Cancer patch size
+   C_range = (C1$minx[2] - C1$minx[1])
    
    # =============================================================
    # Find, load, and reorder corresponding TIL Annotation file
    # =============================================================
-   if(lymphFormatCSV){
-      T1 = as.data.frame(
-         readr::read_csv(
-            paste(params$tilDir,tils[j], sep = "/"),
-            col_names = T,
-            col_type = cols()
-         )
-      )
-      
-      # Data is not ordered by position, fourth column is unnecessary
-      # Fix: order by Y, then X, remove empty column
-      T1 = T1[order(T1$miny,T1$minx),]
-      T_range = T1$width[1]
-   } else {
-      T1 = as.data.frame(
-         readr::read_table(
-            paste(params$tilDir,tils[j], sep = "/"),
-            col_names = F,
-            col_type = cols()
-         )
-      )
-      
-      # Data is not ordered by position, fourth column is unnecessary
-      # Fix: order by Y, then X, remove empty column
-      T1 = T1[order(T1$X2,T1$X1),-4]
-      names(T1) = c("minx","miny","prob_tils")
-      
-      # Identify TIL patch size
-      T_range = (T1$minx[2] - T1$minx[1])
+   T1 <- loadAndSort("TIL")
+   if(is.null(T1)){
+      percent_calls[j,2:ncol(percent_calls)] = NA
+      next
    }
    
-   print(paste0("Sample ", count, ": ", C_range/T_range))
+   # Identify and log TIL patch size
+   T_range = (T1$minx[2] - T1$minx[1])
+   
+   writeLines(paste0("Patch Ratio (Canc/Til): ", C_range/T_range, "\n"))
    # ~1.75
    
    ##=== Get LCM for scaling, for now, only get this for first WSI pair ===
    if(count==1){
       asFrac = MASS::fractions(signif(C_range/T_range, digits = 3)) ## for math facilitation, reduce to hundreths place
-      numerator = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][1]) ## This can be a messy part if sample doesnt have good scalability
-      denom = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][2])
+      if(abs(C_range/T_range - 1.75) < .02){
+         ## Explicitize for memory considerations when ratio is roughly 7/4 (Breast). Will ultimately pick "best factors" from list
+         numerator = as.integer(7)
+         denom = as.integer(4)
+      } else { ## If ratio is much different, do it manually.
+         numerator = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][1]) ## This can be a messy part if sample doesnt have good scalability
+         denom = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][2])
+      }
+      
    } else { ## Check for instability
       newSamp = MASS::fractions(signif(C_range/T_range, digits = 3))
       if(asFrac-newSamp > asFrac/2){
@@ -283,89 +473,32 @@ for(j in 1:length(canc)){
    c1.maxj <- ceiling(big.max.j/numerator)
    
    # =============================================================
-   # Print blank padded matrix (account for non-square images)
+   # Resize and rescale predictions. If any errors, skip to next samp
    # =============================================================
-   T2 <- matrix(0, nrow = t1.maxj, ncol = t1.maxi)
-   C2 <- matrix(0, nrow = c1.maxj, ncol = c1.maxi)
-   
-   # =============================================================
-   # Fill patches with scaled and padded prediction values - will be different dimensions - only fills in patches with predictions -- then convert to raster for interpolation
-   # =============================================================
-   for(el in 1:nrow(T1)){
-      T2[T1$miny[el],T1$minx[el]] <- T1$prob_tils[el]
+   Tdat <- rasterAndResize("TIL")
+   if(is.null(Tdat)){
+      percent_calls[j,2:ncol(percent_calls)] = NA
+      next
    }
-   rT <- raster(T2)
    
-   for(el in 1:nrow(C1)){
-      C2[C1$miny[el],C1$minx[el]] <- C1$prob_tumor[el]
+   Cdat <- rasterAndResize("Canc")
+   if(is.null(Cdat)){
+      percent_calls[j,2:ncol(percent_calls)] = NA
+      next
    }
-   rC <- raster(C2)
-   
-   # =============================================================
-   # Scale using num/denom factor to full size overlapping images - use raster for nearest-neighbor interpolation
-   # =============================================================
-   temp_dim <- raster(nrows = nrow(C2)*numerator,
-                      ncols = ncol(C2)*numerator)
-   
-   crs(temp_dim) = NA
-   extent(temp_dim) <- extent(c(0, 1, 0, 1))
-   C_resized = (raster::resample(x = rC,y = temp_dim, method = 'ngb'))
-   
-   temp_dim <- raster(nrows = nrow(T2)*denom,
-                      ncols = ncol(T2)*denom)
-   crs(temp_dim) = NA
-   extent(temp_dim) <- extent(c(0, 1, 0, 1))
-   T_resized = (raster::resample(x = rT,y = temp_dim, method = 'ngb'))
-   
-   Cdat <- as.matrix(C_resized)
-   #Cdat = round(Cdat)
-   Tdat <- as.matrix(T_resized)
-   #Tdat = round(Tdat)
    
    # =============================================================
    # Write thresholded images to png if desired
    # =============================================================
    if(params$writePNG == TRUE){
-      ## Threshold predictions
-      Cdat_thresh = (Cdat >= params$cancThresh)
-      Tdat_thresh = (Tdat >= params$tilThresh)
-      
-      ## Make rgb matrix
-      my.rgb <- abind(Tdat_thresh, ## R matrix
-                      matrix(0,  ## empty G matrix
-                             nrow = nrow(Cdat_thresh),
-                             ncol = ncol(Cdat_thresh)),
-                      Cdat_thresh, ## B matrix
-                      along = 3)
-      
-      ##write files
-      if(!dir.exists(paste0(params$outputDir,"/PNGs"))){
-         dir.create(paste0(params$outputDir,"/PNGs"))
-      }
-      png::writePNG(target = paste0(params$outputDir,"/PNGs/",
-                                    tils[j],'.thresh.png'),
-                    image = my.rgb)
+      try(writePNGs())
    }
+   
    # =============================================================
    # Extract cancer patches and percent TIL patches
    # =============================================================
-   Cancer_patches = sum(Cdat >= params$cancThresh) ## How many predicted canc?
-   Til_patches = sum(Tdat >= params$tilThresh) # How many predicted Lymph
-   Cancer_patches_with_til = sum(Cdat >= params$cancThresh &
-                                    Tdat >= params$tilThresh) # how many predicted both
-   
-   ## Arrange
-   output = data.frame(slideID = tils[j],
-                       n_Canc_patch = Cancer_patches,
-                       n_TIL_patch = Til_patches,
-                       n_TIL_patch_overlap = Cancer_patches_with_til,
-                       percent_pos = Cancer_patches_with_til / Cancer_patches,
-                       patch_ratio = C_range/T_range,
-                       stringsAsFactors = F)
-   
-   ## Append
-   percent_calls[j,] = output
-   # }
+   percent_calls[j,] <- calculateAlignment()
+   # }  
 }
 
 ## trim .csv from slideID names if it exists
@@ -397,14 +530,6 @@ write.csv(x = percent_calls,
           row.names = F)
 
 # =============================================================
-# Write file of histogram
-tmp = ggplot(data = percent_calls, aes(x = percent_pos, color = TIL_Class, fill = TIL_Class)) + geom_histogram(binwidth = .1)
-
-pdf(file = paste0(params$outputDir,"/", "invasion_histogram.pdf"), width = 8, height = 6)
-tmp
-suppressMessages(dev.off())
-
-# =============================================================
 # If provided, join sample level information to TIL output, replace output file with updated output
 if(params$sampInfo != 'blank'){
    percent_calls = dplyr::full_join(percent_calls,sampInfo, by = "slideID")
@@ -412,3 +537,11 @@ if(params$sampInfo != 'blank'){
              file = paste(params$outputDir,params$outputFile, sep = "/"),
              row.names = F)
 }
+
+# =============================================================
+# Write file of histogram
+tmp = ggplot(data = percent_calls, aes(x = percent_pos, color = TIL_Class, fill = TIL_Class)) + geom_histogram(binwidth = .1)
+
+pdf(file = paste0(params$outputDir,"/", "invasion_histogram.pdf"), width = 8, height = 6)
+tmp
+suppressMessages(dev.off())

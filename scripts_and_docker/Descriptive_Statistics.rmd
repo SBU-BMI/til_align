@@ -51,7 +51,7 @@ if(length(droppable) > 0){
 }
 
 ## Uncomment below if just want invasion and survival
-df = df[,-c(1,6,7)]
+# df = df[,-c(1,6,7)]
 ## Above is for testing
 
 toFacet = colnames(df)[which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime))]
@@ -61,6 +61,7 @@ if(length(toFacet) == 0){ # if there are no additional columns provided,
 } else {
    runFacet = TRUE
 }
+
 ## If both surv columns exist, run survival section
 survExists = params$survTime %in% colnames(df) &
    params$survCensor %in% colnames(df)
@@ -76,26 +77,40 @@ facetHeight = max(
 
 ## Overall Distribution
 
-```{r overall dist, fig.height = 5}
-ggpubr::gghistogram(data = df, x = "scaled_PP", fill = "TIL_Class", binwidth = .1)
+```{r overall dist, fig.height = 6}
+palette = c("#00BFC4","#F8766D")
+plots = list()
+df$TIL_Class = factor(df$TIL_Class, levels = c("Low","High"))
+plots[["hist"]] = ggpubr::gghistogram(data = df, x = "scaled_PP", fill = "TIL_Class", binwidth = .1, palette = palette)
+
+df = df[which(missingTIL == "OK"),]
+tmp = df %>% plyr::count("TIL_Class")
+plots[["bar"]] = ggpubr::ggbarplot(tmp, x = "TIL_Class", y = "freq",
+                                   fill = "TIL_Class", order = c("Low","High"), palette = palette) +
+   labs(y = "Num of WSI per class")
+
+ggpubr::ggarrange(plotlist = plots, ncol = 2, common.legend = T)
 ```
 
 In the analyzed dataset, you have provided **`r nrow(df)` samples** to be analyzed and **`r length(toFacet)` columns** to subdivide the samples. The pipeline calls Low TIL vs High TIL around the **mean** of the dataset **(`r mean(df$scaled_PP, na.rm = T)`)**. This results in:
 
-* `r sum(df$TIL_Class == "Low", na.rm=T)` Low invasion samples (`r signif((sum(df$TIL_Class == "Low", na.rm=T)/nrow(df))*100,digits = 4)`%) and
-* `r sum(df$TIL_Class == "High", na.rm=T)` High invasion samples (`r signif((sum(df$TIL_Class == "High", na.rm=T)/nrow(df))*100,digits = 4)`%). 
+* `r sum(df$TIL_Class == "Low", na.rm=T)` Low invasion samples (`r signif((sum(df$TIL_Class == "Low", na.rm=T)/sum(!is.na(df$TIL_Class)))*100,digits = 4)`%) and
+* `r sum(df$TIL_Class == "High", na.rm=T)` High invasion samples (`r signif((sum(df$TIL_Class == "High", na.rm=T)/sum(!is.na(df$TIL_Class)))*100,digits = 4)`%). 
 
 Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples**. Of the missing samples, **`r sum(missingTIL == "no cancer")`** were aligned but had no predicted cancer presence, while **`r sum(missingTIL == "not aligned")`** had sample information provided but no TIL invasion data. Both will be dropped prior to downstream analyses. Below we will compare invasion characteristics across your provided additional features (all additional columns beyond survival, scaled_PP, and TIL_Class) and, if possible, perform some clinical correlations with your outcome information. 
 
 \newpage
 
-## Faceted by variables of interest
+```{r class facetHeader, results='asis', eval=runFacet}
+cat("## Faceted by variables of interest\n\n")
 
-### Class of Invasion
+cat("> Note: This section is only run if extra information (e.g., Stage, Grade) are provided.\n\n")
 
-Here we test if invasion class is independent of your variable of interest using a chi-squared test
+cat("### Class of Invasion\n\n")
+```
 
 ```{r class with facet, eval=runFacet, fig.height=facetHeight}
+writeLines("Here we test if invasion class is independent of your variable of interest using a chi-squared test")
 ## Remove those with missing TIL info
 df = df[which(missingTIL == "OK"),]
 plots = list()
@@ -108,7 +123,7 @@ for(i in toFacet){
       chi = "Not run, at least one strata had 0 entries"
       tmp = tmp %>% plyr::count()
       plots[[i]] = ggpubr::ggbarplot(tmp, x = i, y = "freq",
-                                     fill = "TIL_Class") +
+                                     fill = "TIL_Class", palette = palette) +
          labs(y = "Num of WSI",
               caption = chi)
    } else{
@@ -116,7 +131,7 @@ for(i in toFacet){
       # 
       tmp = tmp %>% plyr::count()
       plots[[i]] = ggpubr::ggbarplot(tmp, x = i, y = "freq",
-                                     fill = "TIL_Class") +
+                                     fill = "TIL_Class", palette = palette) +
          labs(y = "Num of WSI",
               caption = paste0("Chisq pval: ", signif(chi$p.value,3), "\n",
                                "Chi-stat: ", signif(chi$statistic,6)))
@@ -126,18 +141,13 @@ x = ggarrange(plotlist = plots, ncol = length(toFacet), common.legend = T)
 x
 ```
 
-```{class no facet, eval=!runFacet, fig.height = 5}
-df = df[which(missingTIL == "OK"),]
-tmp = df %>% plyr::count("TIL_Class")
-ggpubr::ggbarplot(tmp, x = "TIL_Class", y = "freq",
-                  fill = "TIL_Class") +
-   labs(y = "Num of WSI per class")
-```
 \newpage
 
-### Continuous Invasion
+```{r cont facetHeader, results='asis', eval=runFacet}
+cat("### Continuous Invasion\n\n")
 
-For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.
+cat("For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.\n\n")
+```
 
 ```{r continuous with facet, eval=runFacet, fig.height=facetHeight}
 plots = list()
@@ -161,15 +171,17 @@ ggarrange(plotlist = plots, ncol = length(toFacet))
 
 \newpage
 
-# Survival
+```{r surv Header, results='asis', eval=survExists}
+cat("# Survival\n\n")
 
-This section assumes your provided data included "Time to Event" and "Is sample censored (0 = yes, 1 = no)". Please see the analytic file help for details if this is not clear.
+cat("> Note: This section is only run if survival information (i.e., 'Time to Event' and 'Is sample censored') are provided.\n\n")
 
-## Kaplan-Meier
+cat("## Kaplan-Meier\n\n")
 
-For the Kaplan-Meier section, TIL Class is used to categorize samples and the log-rank test is used to compute p-values.
+cat("For the Kaplan-Meier section, TIL Class is used to categorize samples and the log-rank test is used to compute p-values.\n\n")
 
-### Univariate
+cat("### Univariate\n\n")
+```
 
 ```{r km univar, fig.height = 6, eval = survExists}
 tmp.df = df
@@ -183,7 +195,7 @@ fit <- survfit(SurvObj ~ TIL_Class,
 
 km = ggsurvplot(fit,
                 data = tmp.df,
-                #palette = c("#00BFC4","#F8766D"),
+                palette = palette,
                 risk.table = T,
                 pval = TRUE,
                 censor = TRUE,
@@ -195,7 +207,9 @@ km
 
 \newpage
 
-### By Vars of Interest
+```{r surv KM facetHeader, results='asis', eval=survExists & runFacet}
+cat("### By Vars of Interest\n\n")
+```
 
 ```{r km facet, fig.height = 6, fig.width = 12, eval = survExists & runFacet}
 plots = list()
@@ -204,6 +218,7 @@ for(i in toFacet){
                          data = tmp.df,
                          risk.table = T,
                          facet.by = i,
+                         palette = palette,
                          pval = TRUE,
                          censor = TRUE,
                          surv.mean.line = "hv",
@@ -217,11 +232,13 @@ ggarrange(plotlist = plots, common.legend = T)
 
 \newpage
 
-## Cox Regression
+```{r cox Header, results='asis', eval=survExists}
+cat("## Cox Regression\n\n")
 
-For the Cox regression section, both TIL Class (categorical) and scaled_PP (continuous) are used to categorize samples. While KM plots are limited to bivariate, this section will run all analyses in both bivariable and in a larger model using all included variables.
+cat("For the Cox regression section, both TIL Class (categorical) and scaled_PP (continuous) are used to categorize samples. While KM plots are limited to bivariate, this section will run all analyses in both bivariable and in a larger model using all included variables.\n\n")
 
-### Univariate Categorical
+cat("### Univariate Categorical\n\n")
+```
 
 ```{r cox cat univar, fig.height = 3, fig.width = 8, eval = survExists}
 tmp.df$TIL_Class = factor(tmp.df$TIL_Class, levels = c("Low","High"))
@@ -230,16 +247,17 @@ fit.coxph <- coxph(Surv(time = tmp.df$survTime,
                         type = "right") ~ TIL_Class, data = tmp.df)
 confInts = summary(fit.coxph)$conf.int
 if(anyNA(confInts) | any(is.infinite(confInts))){
-   message(" . . . Cox confidence interval too wide to plot, returning summary of fit instead . . . ")
+   message("\n . . . Cox confidence interval too wide to plot, returning summary of fit instead . . . \n")
    print(summary(fit.coxph))
 } else{
    x = ggforest(fit.coxph, data = tmp.df, main = "TIL Class")
    x
 }
-
 ```
 
-### Univariate Continuous
+```{r cox cont Header, results='asis', eval=survExists}
+cat("### Univariate Continuous\n\n")
+```
 
 ```{r cox cont univar, fig.height = 2, fig.width = 8, eval = survExists}
 fit.coxph <- coxph(Surv(time = tmp.df$survTime,
@@ -255,7 +273,11 @@ if(anyNA(confInts) | any(is.infinite(confInts))){
 }
 ```
 
-### By Vars of Interest (one at a time)
+\newpage
+
+```{r surv cox facetHeader, results='asis', eval=survExists & runFacet}
+cat("### By Vars of Interest (one at a time)\n\n")
+```
 
 ```{r cox bivar, fig.width = 8, eval = survExists & runFacet}
 plots = list()
@@ -268,7 +290,7 @@ for(i in toFacet){
    fit.coxph = coxph(fit.coxph, data = newTmp)
    confInts = summary(fit.coxph)$conf.int
    if(anyNA(confInts) | any(is.infinite(confInts))){ ## If plot would fail, skip it.
-      message(paste0(" . . . Cox confidence interval too wide to plot for 'Invasion + ",i, "' returning summary of fit instead . . . "))
+      message(paste0("\n . . . Cox confidence interval too wide to plot for 'Invasion + ",i, "' returning summary of fit instead . . . \n"))
       print(summary(fit.coxph))
    } else{
       plots[[i]] = ggforest(fit.coxph, data = newTmp, main = paste0("Bivariate with ", i))
@@ -279,14 +301,18 @@ if(length(plots) > 0){
 }
 ```
 
-### Multivariable Cox (all features)
+\newpage
 
-```{r cox multivar, fig.width = 8, eval = survExists & runFacet}
+```{r multi cox facetHeader, results='asis', eval=survExists & (length(toFacet)>1)}
+cat("### Multivariable Cox (all features)\n\n")
+```
+
+```{r cox multivar, fig.width = 8, eval = survExists & (length(toFacet)>1)}
 newTmp = tmp.df[,c("scaled_PP", "SurvObj", toFacet)]
 fit.coxph <- coxph(SurvObj ~ ., data = newTmp)
 confInts = summary(fit.coxph)$conf.int
 if(anyNA(confInts) | any(is.infinite(confInts))){ ## If plot would fail, skip it.
-   message(" . . . Cox confidence interval too wide to plot for multivar, returning summary of fit instead . . . ")
+   message("\n . . . Cox confidence interval too wide to plot for multivar, returning summary of fit instead . . . \n")
    print(summary(fit.coxph))
 } else{
    x = ggforest(fit.coxph, data = tmp.df, main = "All Var")

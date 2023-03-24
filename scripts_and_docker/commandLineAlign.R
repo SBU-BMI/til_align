@@ -423,21 +423,32 @@ for(j in 1:length(canc)){
    T_range = (T1$minx[2] - T1$minx[1])
    
    writeLines(paste0("Patch Ratio (Canc/Til): ", C_range/T_range, "\n"))
-   # ~1.75
-   
-   ##=== Get LCM for scaling, for now, only get this for first WSI pair ===
-   if(count==1){
-      asFrac = MASS::fractions(signif(C_range/T_range, digits = 3)) ## for math facilitation, reduce to hundreths place
-      if(abs(C_range/T_range - 1.75) < .02){
-         ## Explicitize for memory considerations when ratio is roughly 7/4 (Breast). Will ultimately pick "best factors" from list
+   # ===============================================================================
+   ## == Get LCM for scaling (Assign with sample 1, check for stability with rest ==
+   # ===============================================================================
+   if(count==1){ ## Assign
+      # =================================================================================
+      ## == Explicitly define based on proximity to best LCM for memory considerations ==
+      # =================================================================================
+      if(abs(C_range/T_range - 1.75) < .02){ ## BRCA, PRAD, READ, COAD are roughly 1.75 (7/4)
          numerator = as.integer(7)
          denom = as.integer(4)
-      } else { ## If ratio is much different, do it manually.
+      }  else if(abs(C_range/T_range - 3.5) < .02){ ## LUAD is roughly 3.5 (7/2)
+         numerator = as.integer(7)
+         denom = as.integer(2)
+      } else if(abs(C_range/T_range - 10.5) < .02){ ## PAAD is roughly 10.5 (21/2)
+         numerator = as.integer(21)
+         denom = as.integer(2)
+      } else { ## If ratio is much different from the above, do it manually.
+         asFrac = MASS::fractions(signif(C_range/T_range, digits = 3)) ## Calc fraction (for math facilitation, reduce to hundreths place)
          numerator = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][1]) ## This can be a messy part if sample doesnt have good scalability
          denom = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][2])
       }
-      
-   } else { ## Check for instability
+      # ======================
+      ## == Stability check ==
+      # ======================
+   } else { 
+      ## Possible future change, assign ratio each time, allows for single run of multiple tumor types.
       newSamp = MASS::fractions(signif(C_range/T_range, digits = 3))
       if(asFrac-newSamp > asFrac/2){
          errorName = canc[j]

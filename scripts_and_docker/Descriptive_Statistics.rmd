@@ -12,8 +12,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = "/data")
-approxHeight = params$nVars
-knitr::opts_chunk$set(collapse = T, warning = F, fig.width=10, fig.height=approxHeight, echo = F)
+knitr::opts_chunk$set(collapse = T, warning = F, fig.width=10, fig.height=5, echo = F)
 library(readr)
 library(plyr)
 library(dplyr)
@@ -118,6 +117,8 @@ x = ggarrange(plotlist = plots, ncol = length(toFacet), common.legend = T)
 x
 ```
 
+\newpage
+
 ### Continuous Invasion
 
 For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.
@@ -180,7 +181,7 @@ km
 
 ### By Vars of Interest
 
-```{r km facet, fig.height = 8, fig.width = 12, eval = survExists & runFacet}
+```{r km facet, fig.height = 6, fig.width = 12, eval = survExists & runFacet}
 plots = list()
 for(i in toFacet){
    km = ggsurvplot_facet(fit,

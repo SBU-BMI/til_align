@@ -50,6 +50,9 @@ if(length(droppable) > 0){
    df = df[,-droppable]
 }
 
+## Uncomment below if just want invasion and survival
+df = df[,-c(1,6,7)]
+## Above is for testing
 
 toFacet = colnames(df)[which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime))]
 if(length(toFacet) == 0){ # if there are no additional columns provided,
@@ -61,13 +64,19 @@ if(length(toFacet) == 0){ # if there are no additional columns provided,
 ## If both surv columns exist, run survival section
 survExists = params$survTime %in% colnames(df) &
    params$survCensor %in% colnames(df)
+
+facetHeight = max(
+   c(length(toFacet)*2,
+     5
+   )
+)
 ```
 
 # Descriptive Statistics
 
 ## Overall Distribution
 
-```{r overall dist, fig.height = 4}
+```{r overall dist, fig.height = 5}
 ggpubr::gghistogram(data = df, x = "scaled_PP", fill = "TIL_Class", binwidth = .1)
 ```
 
@@ -86,7 +95,7 @@ Values for invasion were not computed for **`r sum(is.na(df$scaled_PP))` samples
 
 Here we test if invasion class is independent of your variable of interest using a chi-squared test
 
-```{r class with facet, eval=runFacet}
+```{r class with facet, eval=runFacet, fig.height=facetHeight}
 ## Remove those with missing TIL info
 df = df[which(missingTIL == "OK"),]
 plots = list()
@@ -117,13 +126,20 @@ x = ggarrange(plotlist = plots, ncol = length(toFacet), common.legend = T)
 x
 ```
 
+```{class no facet, eval=!runFacet, fig.height = 5}
+df = df[which(missingTIL == "OK"),]
+tmp = df %>% plyr::count("TIL_Class")
+ggpubr::ggbarplot(tmp, x = "TIL_Class", y = "freq",
+                  fill = "TIL_Class") +
+   labs(y = "Num of WSI per class")
+```
 \newpage
 
 ### Continuous Invasion
 
 For continuous invasion, we use a non-parametric Wilcoxon Rank-Sum if your provided feature has 2 levels. If there are 3+ levels, ANOVA is used.
 
-```{r continuous with facet, eval=runFacet}
+```{r continuous with facet, eval=runFacet, fig.height=facetHeight}
 plots = list()
 for(i in toFacet){
    if(length(levels(as.factor(df[,i]))) > 2){

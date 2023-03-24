@@ -427,6 +427,7 @@ for(j in 1:length(canc)){
    ## == Get LCM for scaling (Assign with sample 1, check for stability with rest ==
    # ===============================================================================
    if(count==1){ ## Assign
+      firstFrac = MASS::fractions(signif(C_range/T_range, digits = 3))
       # =================================================================================
       ## == Explicitly define based on proximity to best LCM for memory considerations ==
       # =================================================================================
@@ -440,9 +441,9 @@ for(j in 1:length(canc)){
          numerator = as.integer(21)
          denom = as.integer(2)
       } else { ## If ratio is much different from the above, do it manually.
-         asFrac = MASS::fractions(signif(C_range/T_range, digits = 3)) ## Calc fraction (for math facilitation, reduce to hundreths place)
-         numerator = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][1]) ## This can be a messy part if sample doesnt have good scalability
-         denom = as.integer(strsplit(attr(asFrac,"fracs"),"/")[[1]][2])
+         firstFrac = MASS::fractions(signif(C_range/T_range, digits = 3)) ## Calc fraction (for math facilitation, reduce to hundreths place)
+         numerator = as.integer(strsplit(attr(firstFrac,"fracs"),"/")[[1]][1]) ## This can be a messy part if sample doesnt have good scalability
+         denom = as.integer(strsplit(attr(firstFrac,"fracs"),"/")[[1]][2])
       }
       # ======================
       ## == Stability check ==
@@ -450,7 +451,7 @@ for(j in 1:length(canc)){
    } else { 
       ## Possible future change, assign ratio each time, allows for single run of multiple tumor types.
       newSamp = MASS::fractions(signif(C_range/T_range, digits = 3))
-      if(asFrac-newSamp > asFrac/2){
+      if(firstFrac-newSamp > firstFrac/2){
          errorName = canc[j]
          warning(paste0("Sample ", errorName, " has patch ratio of significantly different size than previous iterations (varied by > half of initial sample -- check)"))
       }

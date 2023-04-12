@@ -15,11 +15,11 @@ params = list(algorithm = args[1],
               tilThresh = args[3],
               cancDir = args[4],
               cancThresh = args[5],
-              sampFile = args[6],
-              outputFile = args[7],
-              outputDir = args[8],
-              writePNG = args[9],
-              sampInfo = args[10])
+              outputFile = args[6],
+              outputDir = args[7],
+              writePNG = args[8],
+              sampInfo = args[9],
+              subtypes = args[10])
 
 ## ==== Before anything, flag for missing information ====
 if(params$tilDir == "blank"){
@@ -54,18 +54,18 @@ print(params)
 
 ### ==== For testing!! comment out ====
 # setwd("./example/")
-# params = list(tilDir = "./tilPreds",
-#               #tilDir = "/datadrive/shared/image_analysis/SEERky_test/til",
-#               tilThresh = 0.1,
-#               cancDir = "./cancPreds",
-#               #cancDir = "/datadrive/shared/image_analysis/SEERky_test/tumor",
-#               cancThresh = 0.5,
-#               sampInfo = "sampInfo.csv",
-#               #sampInfo = "/datadrive/shared/image_analysis/SEERky_test/clinical_data.csv",
-#               #sampFile = "/datadrive/shared/image_analysis/ML_output/extdata/flexible_testDir/sampFileShort.csv",
-#               outputFile = "Percent_Invasion.csv",
-#               outputDir = "outputs",
-#               writePNG = T)
+params = list(#tilDir = "./tilPreds",
+   tilDir = "/datadrive/shared/image_analysis/ML_output/extdata/luad/example_withSubtypes/tilPreds/",
+   tilThresh = 0.1,
+   #cancDir = "./cancPreds",
+   cancDir = "/datadrive/shared/image_analysis/ML_output/extdata/luad/example_withSubtypes/cancPreds/",
+   cancThresh = 0.5,
+   sampInfo = "sampInfo.csv",
+   #sampInfo = "/datadrive/shared/image_analysis/SEERky_test/clinical_data.csv",
+   outputFile = "Percent_Invasion.csv",
+   outputDir = "outputs",
+   writePNG = T,
+   subtypes = T)
 ### ==== Above is for testing!! comment out ====
 
 ### ==== Read in files ====
@@ -161,17 +161,6 @@ if(params$sampInfo == 'blank'){
    }
 }
 
-# ## ==== Align ====
-# Initialize empty data frame for output
-percent_calls <- data.frame(slideID = canc,
-                            n_Canc_patch = numeric(length = length(canc)),
-                            n_TIL_patch = numeric(length = length(canc)),
-                            n_TIL_patch_overlap = numeric(length = length(canc)),
-                            percent_pos = numeric(length = length(canc)),
-                            patchRatio = numeric(length = length(canc)),
-                            stringsAsFactors = F)
-
-
 ### ==== Define functions to facilitate tryCatch approaches
 loadAndSort <- function(whichPred){
    ## ============================================
@@ -179,33 +168,62 @@ loadAndSort <- function(whichPred){
    ## ============================================
    if(whichPred == "Canc"){
       out <- tryCatch({
-         if(cancFormatCSV){
-            C1 = as.data.frame(
-               readr::read_csv(
-                  paste(params$cancDir,canc[j], sep = "/"),
-                  col_names = T,
-                  col_type = cols()
+         if(cancFormatCSV){ 
+            if(params$subtypes){ ## CSV + subtypes (WSI-Infer, defaults to format we want)
+               C1 = as.data.frame(
+                  readr::read_csv(
+                     paste(params$cancDir,canc[j], sep = "/"),
+                     col_names = T,
+                     col_type = cols()
+                  )
                )
-            )
-            
-            # Order data as required (y then x)
-            C1 = C1[order(C1$miny, C1$minx),]
-            C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
+            } else { ## CSV - subtypes (WSI-Infer, default format)
+               C1 = as.data.frame(
+                  readr::read_csv(
+                     paste(params$cancDir,canc[j], sep = "/"),
+                     col_names = T,
+                     col_type = cols()
+                  )
+               )
+               # Order data as required (y then x)
+               C1 = C1[order(C1$miny, C1$minx),]
+               C_range = C1$width[1] ## WSIInfer provides patch size, should we include square check? Seems unnecessary
+            }
          } else {
-            C1 = as.data.frame(
-               readr::read_table(
-                  paste(params$cancDir,canc[j], sep = "/"),
-                  col_names = F,
-                  col_type = cols()
+            if(params$subtypes){ ## Whitespace sep + w/ subtypes
+               C1 = as.data.frame(
+                  readr::read_table(
+                     paste(params$cancDir,canc[j], sep = "/"),
+                     col_names = T,
+                     col_type = cols()
+                  )
                )
-            )
-            
-            # Data is not ordered by position, fourth column is unnecessary
-            # Fix: order by Y, then X, remove empty column
-            C1 = C1[order(C1$X2, C1$X1),-4]
-            names(C1) = c("minx","miny","prob_tumor")
-            C1
+               colnames(C1)[1:2] = c("minx","miny")
+               colnames(C1)[3:ncol(C1)] = paste0("prob_",colnames(C1)[3:ncol(C1)])
+               C1 = C1[order(C1$miny, C1$minx),]
+            } else { ## Whitespace + no subtypes
+               C1 = as.data.frame(
+                  readr::read_table(
+                     paste(params$cancDir,canc[j], sep = "/"),
+                     col_names = F,
+                     col_type = cols()
+                  )
+               )
+               # Data is not ordered by position, fourth column is unnecessary
+               # Fix: order by Y, then X, remove empty column
+               C1 = C1[order(C1$X2, C1$X1),-4]
+               names(C1) = c("minx","miny","prob_tumor")
+            }
          }
+         ## If inputs are flagged to include subtype predictions
+         if(params$subtypes){
+            ## This needs to be flexible for diff tumor types
+            predIndices = grep("prob", colnames(C1), ignore.case = T)
+            C1$Call = apply(C1[,predIndices], 1,which.max) ## call each patch
+            C1$Call[rowSums(C1[,predIndices]) == 0] = 0 ## If all probs are 0, it is background (type 0)
+            C1$Call = as.integer(C1$Call)
+         }
+         C1
       },
       error=function(cond) {
          message(paste0("Error upon C1 Loading. Original error message:\n",
@@ -260,6 +278,23 @@ loadAndSort <- function(whichPred){
    return(out)
 }
 
+makeDict <- function(C1){
+   out <- tryCatch({
+      ## Make a dictionary for subtype to numeric conversion
+      callDict = list(background = 0)
+      predIndices = grep("prob", colnames(C1), ignore.case = T)
+      for(tissueType in predIndices){
+         trimmed = gsub("prob_","",colnames(C1)[tissueType]) ## extract just tissue type (drop "prob_")
+         callDict[[trimmed]] = length(callDict) ## Count number of tissue types and assign pair
+      }
+      callDict
+   },
+   error=function(cond) {
+      return(NULL)
+   })
+   return(out)
+}
+
 rasterAndResize <- function(whichPred){
    if(whichPred == "Canc"){
       out <- tryCatch({
@@ -271,8 +306,14 @@ rasterAndResize <- function(whichPred){
          # =============================================================
          # Fill patches with scaled and padded prediction values - will be different dimensions - only fills in patches with predictions -- then convert to raster for interpolation
          # =============================================================
-         for(el in 1:nrow(C1)){
-            C2[C1$miny[el],C1$minx[el]] <- C1$prob_tumor[el]
+         if(params$subtypes){ ## Grab Predicted Call
+            for(el in 1:nrow(C1)){
+               C2[C1$miny[el],C1$minx[el]] <- C1$Call[el]
+            }
+         } else {
+            for(el in 1:nrow(C1)){ ## Grab tumor probability
+               C2[C1$miny[el],C1$minx[el]] <- C1$prob_tumor[el]
+            }
          }
          rC <- raster(C2)
          
@@ -334,17 +375,81 @@ rasterAndResize <- function(whichPred){
 }
 
 writePNGs <- function(){
-   ## Threshold predictions
-   Cdat_thresh = (Cdat >= params$cancThresh)
-   Tdat_thresh = (Tdat >= params$tilThresh)
+   if(params$subtypes){
+      plots2 = list()
+      ## Print a side-by-side PNG of thresholded overlay and subtyped patches
+      ## Threshold predictions
+      Cdat_thresh = Cdat != callDict$background & Cdat != callDict$benign
+      Tdat_thresh = (Tdat >= params$tilThresh)
+      
+      Cdat_thresh_melted = reshape2::melt(Cdat)
+      colnames(Cdat_thresh_melted) = c("x","y","Canc_type")
+      
+      ## Parse Canc Type
+      Cdat_thresh_melted$Canc_type = factor(Cdat_thresh_melted$Canc_type,
+                                            levels = 0:6,
+                                            labels = names(callDict))
+      Cdat_thresh_melted$Canc_presence = !(Cdat_thresh_melted$Canc_type %in% c("benign","background"))
+      
+      Tdat_thresh_melted = reshape2::melt(Tdat_thresh)
+      
+      to_plot = data.frame(x = Cdat_thresh_melted$x, 
+                           y = Cdat_thresh_melted$y, 
+                           presence = factor("No Tissue", levels = c("No Tissue", "Benign","Cancer","TIL","Both")))
+      
+      to_plot$presence[Cdat_thresh_melted$Canc_type == "benign"] = "Benign"
+      to_plot$presence[Cdat_thresh_melted$Canc_presence & !Tdat_thresh_melted$value] = "Cancer"
+      to_plot$presence[!Cdat_thresh_melted$Canc_presence & Tdat_thresh_melted$value] = "TIL"
+      to_plot$presence[Cdat_thresh_melted$Canc_presence & Tdat_thresh_melted$value] = "Both"
+      
+      plots2[["invasion"]] = ggplot(to_plot, aes(x=y,y=x,color=presence))+geom_point() +
+         scale_color_manual(values = c("black", "grey","yellow","red","red")) +
+         theme(axis.title = element_blank(),
+               axis.text = element_blank(),
+               legend.title = element_text(size = 14)) +
+         guides(color=guide_legend(title="Patch Type"))
+      
+      ## Make rgb matrix (this is the thresholded overlay)
+      # my.rgb <- abind(Tdat_thresh, ## R matrix
+      #                 matrix(0,  ## empty G matrix
+      #                        nrow = nrow(Cdat_thresh),
+      #                        ncol = ncol(Cdat_thresh)),
+      #                 Cdat_thresh, ## B matrix
+      #                 along = 3)
+      
+      # ggplot(to_plot, aes(x = x,y=y, color = presence, fill = presence)) +
+      #    geom_point(shape = 22, size = 2) + theme_pubr() +
+      #    scale_color_manual(values=c("grey","blue","red","yellow")) +
+      #    theme(axis.title = element_blank(),
+      #          axis.text = element_blank())
+      ## Also print just a color coded map of subtypes
+      plots2[["types"]] = ggplot(C1, aes(x = minx, y = miny, 
+                                         fill = as.character(Call)), color = as.character(Call)) + 
+         geom_point(shape = 22, size = 3) + #theme_pubr() +
+         scale_fill_manual(values=palette(),
+                           labels = names(callDict)) +
+         theme(axis.title = element_blank(),
+               axis.text = element_blank(),
+               legend.title = element_text(size = 10)) +
+         guides(fill=guide_legend(title="Tissue Type"))
+      
+      pdf( paste0(params$outputDir,"/PNGs/", tils[j],'subtypes.pdf') )
+      ggpubr::ggarrange(plotlist = plots2, ncol = 1)
+      dev.off()
+   } else {
+      ## Threshold predictions
+      Cdat_thresh = (Cdat >= params$cancThresh)
+      Tdat_thresh = (Tdat >= params$tilThresh)
+      
+      ## Make rgb matrix
+      my.rgb <- abind(Tdat_thresh, ## R matrix
+                      matrix(0,  ## empty G matrix
+                             nrow = nrow(Cdat_thresh),
+                             ncol = ncol(Cdat_thresh)),
+                      Cdat_thresh, ## B matrix
+                      along = 3)
+   }
    
-   ## Make rgb matrix
-   my.rgb <- abind(Tdat_thresh, ## R matrix
-                   matrix(0,  ## empty G matrix
-                          nrow = nrow(Cdat_thresh),
-                          ncol = ncol(Cdat_thresh)),
-                   Cdat_thresh, ## B matrix
-                   along = 3)
    
    ##write files
    if(!dir.exists(paste0(params$outputDir,"/PNGs"))){
@@ -357,19 +462,62 @@ writePNGs <- function(){
 
 calculateAlignment <- function(){
    out <- tryCatch({
-      Cancer_patches = sum(Cdat >= params$cancThresh) ## How many predicted canc?
-      Til_patches = sum(Tdat >= params$tilThresh) # How many predicted Lymph
-      Cancer_patches_with_til = sum(Cdat >= params$cancThresh &
-                                       Tdat >= params$tilThresh) # how many predicted both
-      
-      ## Arrange
-      data.frame(slideID = tils[j],
-                 n_Canc_patch = Cancer_patches,
-                 n_TIL_patch = Til_patches,
-                 n_TIL_patch_overlap = Cancer_patches_with_til,
-                 percent_pos = Cancer_patches_with_til / Cancer_patches,
-                 patch_ratio = C_range/T_range,
-                 stringsAsFactors = F)
+      if(params$subtypes){
+         ## ==== First, overall calculations ====
+         Tissue_patches = Cdat != callDict$background ## Boolean: patch locations predicted to be "NOT BACKGROUND"
+         
+         Cancer_patches = (!(Cdat %in% c(callDict$background, callDict$benign))) ## Boolean: patch locations NEITHER background nor benign
+         
+         Til_patches = Tdat >= params$tilThresh # Boolean: Patch locations predicted to contain Lymphocytes
+         
+         Cancer_patches_with_til = Cancer_patches & Til_patches # Boolean: Patch locations predicted Cancer & Lymphocyte
+         
+         ## Arrange
+         output = data.frame(slideID = sampNames[j],
+                             n_Tissue_patch = sum(Tissue_patches),
+                             n_Canc_patch = sum(Cancer_patches),
+                             n_TIL_patch = sum(Til_patches),
+                             n_TIL_patch_overlap = sum(Cancer_patches_with_til),
+                             percent_pos = sum(Cancer_patches_with_til) / sum(Cancer_patches),
+                             patchRatio = C_range/T_range,
+                             stringsAsFactors = F)
+         
+         ## ==== Now, append subtype specific metrics ====
+         for(tissueType in names(callDict)){
+            ## Calculate metrics
+            Cancer_patches = sum(Cdat == callDict[[tissueType]]) ## How many predicted particular cancer type
+            Cancer_patches_with_til = sum(Cdat == callDict[[tissueType]] & ## How many of type X have lymph invasion
+                                             Tdat >= params$tilThresh)
+            percent_pos = Cancer_patches_with_til/Cancer_patches ## Percentage of line above
+            
+            if(tissueType == "background"){
+               percent_patch_subtype = NA
+            } else {
+               percent_patch_subtype = Cancer_patches / output$n_Canc_patch ## How many cancer patches are type X
+            }
+            
+            ## Append metrics
+            output[,paste0(tissueType,"_n_patch")] = Cancer_patches
+            output[,paste0(tissueType,"_percent_of_canc_patches")] = percent_patch_subtype
+            output[,paste0(tissueType,"_TIL_overlap")] = Cancer_patches_with_til
+            output[,paste0(tissueType,"_percent_pos")] = percent_pos
+         }
+         output
+      } else {
+         Cancer_patches = sum(Cdat >= params$cancThresh) ## How many predicted canc?
+         Til_patches = sum(Tdat >= params$tilThresh) # How many predicted Lymph
+         Cancer_patches_with_til = sum(Cdat >= params$cancThresh &
+                                          Tdat >= params$tilThresh) # how many predicted both
+         
+         ## Arrange
+         data.frame(slideID = tils[j],
+                    n_Canc_patch = Cancer_patches,
+                    n_TIL_patch = Til_patches,
+                    n_TIL_patch_overlap = Cancer_patches_with_til,
+                    percent_pos = Cancer_patches_with_til / Cancer_patches,
+                    patch_ratio = C_range/T_range,
+                    stringsAsFactors = F)
+      }
    },
    error=function(cond) {
       message(paste0("Error upon alignment calculation. Original error message:\n",
@@ -392,7 +540,6 @@ calculateAlignment <- function(){
 writeLines(paste0(" . . . Running alignment and analyses for ", length(canc), " samples . . . "))
 
 count = 0
-FLAG = F
 for(j in 1:length(canc)){
    writeLines(paste0("============================================= \n",
                      "# Processing ", tils[j], " # \n", 
@@ -406,9 +553,15 @@ for(j in 1:length(canc)){
       percent_calls[j,2:ncol(percent_calls)] = NA
       next
    }
-   
    # Identify and log Cancer patch size
    C_range = (C1$minx[2] - C1$minx[1])
+   
+   ## =============================================================
+   # Make a dictionary
+   # =============================================================
+   if(params$subtypes & count == 1){ ## Only need to make this once
+      callDict = makeDict(C1)   
+   }
    
    # =============================================================
    # Find, load, and reorder corresponding TIL Annotation file
@@ -418,7 +571,6 @@ for(j in 1:length(canc)){
       percent_calls[j,2:ncol(percent_calls)] = NA
       next
    }
-   
    # Identify and log TIL patch size
    T_range = (T1$minx[2] - T1$minx[1])
    
@@ -509,8 +661,11 @@ for(j in 1:length(canc)){
    # =============================================================
    # Extract cancer patches and percent TIL patches
    # =============================================================
-   percent_calls[j,] <- calculateAlignment()
-   # }  
+   if(count==1){
+      percent_calls <- calculateAlignment
+   } else {
+      percent_calls[j,] <- calculateAlignment()
+   }
 }
 
 ## trim .csv from slideID names if it exists

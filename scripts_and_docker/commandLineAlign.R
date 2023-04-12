@@ -73,18 +73,21 @@ tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be ha
 canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be hardcoded or relative
 
 ## ==== Drop extraneous files ("color-*" and "*.low_res") ====
-tils = tils[grep("^prediction", tils)]
+if(length(grep("^prediction", tils))>0){ ## WSInfer outputs lack prefix, older outputs have prefix. 
+   tils = tils[grep("^prediction", tils)]
+}
+
 writeLines(" . . . Dropping low_res and color- files . . . ")
 if(any(grepl("low_res", tils))){
    tils = tils[-grep("low_res", tils)]
 }
 
+if(length(grep("^prediction", canc))>0){ ## WSInfer outputs lack prefix, older outputs have prefix. 
 canc = canc[grep("^prediction", canc)]
+}
 if(any(grepl("low_res", canc))){
    canc = canc[-grep("low_res", canc)]
 }
-
-
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other)
 writeLines(" . . . Checking for tumor/lymph pairs . . . ")

@@ -31,7 +31,8 @@ droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexibl
               grep("patchRatio", colnames(df)),
               grep("*percent*", colnames(df)),
               grep("*overlap", colnames(df)),
-              grep("*patch", colnames(df)))
+              grep("*patch", colnames(df)),
+              grep("slide_level_call", colnames(df)))
 
 ## For testing
 # params = list(csvPath = "~/Desktop/tilalign/heathCheck/heathtestOuts/output.csv",

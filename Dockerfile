@@ -2,6 +2,11 @@
 # Build this container with 'docker build -f base.Dockerfile .'
 FROM kaczmarj/tilalign:9fd8a17bd13a36a8d59a1ff25b9f36d4cb75beb9
 
+# Add dependency from https://github.com/SBU-BMI/til_align/pull/30
+RUN install2.r --error --skipinstalled reshape2 \
+    && rm -rf /tmp/downloaded_packages \
+    && strip /usr/local/lib/R/site-library/*/libs/*.so
+
 WORKDIR /code
 COPY scripts_and_docker/ .
 RUN chmod +x *.sh *.R *.rmd

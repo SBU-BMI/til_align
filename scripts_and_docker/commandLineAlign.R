@@ -15,12 +15,11 @@ params = list(algorithm = args[1],
               tilThresh = args[3],
               cancDir = args[4],
               cancThresh = args[5],
-              sampFile = args[6],
+              sampInfo = args[6],
               outputFile = args[7],
               outputDir = args[8],
               writePNG = args[9],
-              sampInfo = args[10],
-              subtype = args[11])
+              subtypes = args[10])
 
 ## ==== Before anything, flag for missing information ====
 if(params$tilDir == "blank"){
@@ -91,8 +90,6 @@ canc = canc[grep("^prediction", canc)]
 if(any(grepl("low_res", canc))){
    canc = canc[-grep("low_res", canc)]
 }
-
-
 
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other) ====
 writeLines(" . . . Checking for tumor/lymph pairs . . . ")
@@ -398,7 +395,7 @@ writePNGs <- function(){
       Cdat_thresh_melted = reshape2::melt(Cdat)
       colnames(Cdat_thresh_melted) = c("x","y","Canc_type")
       
-      ## Parse Canc Type
+      ## Parse Canc Type 
       Cdat_thresh_melted$Canc_type = factor(Cdat_thresh_melted$Canc_type,
                                             levels = 0:6,
                                             labels = names(callDict))

@@ -29,10 +29,13 @@ df =  as.data.frame(readr::read_csv(file = params$csvPath))
 droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
               grep("*_TIL_patch*", colnames(df)),
               grep("patchRatio", colnames(df)),
-              grep("*percent_pos", colnames(df)))
+              grep("*percent*", colnames(df)),
+              grep("*overlap", colnames(df)),
+              grep("*patch", colnames(df)),
+              grep("slide_level_call", colnames(df)))
 
 ## For testing
-# params = list(csvPath = "../example/outputs/Percent_Invasion.csv",
+# params = list(csvPath = "~/Desktop/tilalign/heathCheck/heathtestOuts/output.csv",
 #               nVars = 2,
 #               survCensor = "censorA.0yes.1no",
 #               survTime = "survivalA")

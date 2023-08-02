@@ -80,17 +80,46 @@ tils <- sort(list.files(params$tilDir), decreasing = TRUE) # data dirs can be ha
 canc <- sort(list.files(params$cancDir),decreasing = TRUE) # data dirs can be hardcoded or relative
 
 ## ==== Drop extraneous files ("color-*" and "*.low_res") ====
-tils = tils[grep("^prediction", tils)]
+if(any(grepl("^prediction", tils))){
+   tils = tils[grep("^prediction", tils)]
+}
+
 writeLines(" . . . Dropping low_res and color- files . . . ")
 if(any(grepl("low_res", tils))){
    tils = tils[-grep("low_res", tils)]
 }
 
-canc = canc[grep("^prediction", canc)]
+if(any(grepl("^prediction", canc))){
+   canc = canc[grep("^prediction", canc)]
+}
+
 if(any(grepl("low_res", canc))){
    canc = canc[-grep("low_res", canc)]
 }
 
+## ==== Check for read and align format using first entry in both cancer and lymph file lists ====
+lymphFormatCSV = grepl("csv", tils[1])
+cancFormatCSV = grepl("csv", canc[1])
+
+## ==== If they are different formats, warn but continue. This is likely not an optimal implementation ====
+if(lymphFormatCSV != cancFormatCSV){
+   warning("Prediction formats for cancer and lymphocyte are different, please double check this is intentional")
+}
+
+## ==== Print alignment trajectory ====
+if(lymphFormatCSV & cancFormatCSV){
+   if(params$subtypes){
+      message(" . . . Inputs detected as WSInfer with Subtypes . . . ")
+   } else {
+      message(" . . . Inputs detected as WSInfer without Subtypes . . . ")
+   }
+} else {
+   if(params$subtypes){
+      message(" . . . Inputs detected as Original with Subtypes . . . ")
+   } else {
+      message(" . . . Inputs detected as Original without Subtypes . . . ")
+   }
+}
 ## ==== Check for missing file pairs (if there is a tumor or lymph prediction but not the other) ====
 writeLines(" . . . Checking for tumor/lymph pairs . . . ")
 
@@ -121,30 +150,6 @@ if(length(tils)==0){
 }
 if(!all.equal(tils,canc)){
    stop("Supplied files do not match. Must be same names. Please adjust directories and try again.")
-}
-
-## ==== Check for read and align format using first entry in both cancer and lymph file lists ====
-lymphFormatCSV = grepl("csv", tils[1])
-cancFormatCSV = grepl("csv", canc[1])
-
-## ==== If they are different formats, warn but continue. This is likely not an optimal implementation ====
-if(lymphFormatCSV != cancFormatCSV){
-   warning("Prediction formats for cancer and lymphocyte are different, please double check this is intentional")
-}
-
-## ==== Print alignment trajectory ====
-if(lymphFormatCSV & cancFormatCSV){
-   if(params$subtypes){
-      message(" . . . Inputs detected as WSInfer with Subtypes . . . ")
-   } else {
-      message(" . . . Inputs detected as WSInfer without Subtypes . . . ")
-   }
-} else {
-   if(params$subtypes){
-      message(" . . . Inputs detected as Original with Subtypes . . . ")
-   } else {
-      message(" . . . Inputs detected as Original without Subtypes . . . ")
-   }
 }
 
 ## ==== read in sampInfo csv ahead of time if provided ====
@@ -204,6 +209,7 @@ loadAndSort <- function(whichPred){
                      col_type = cols()
                   )
                )
+               #print(head(C1))
                colnames(C1)[1:2] = c("minx","miny")
                colnames(C1)[3:ncol(C1)] = paste0("prob_",colnames(C1)[3:ncol(C1)])
                C1 = C1[order(C1$miny, C1$minx),]
@@ -256,7 +262,7 @@ loadAndSort <- function(whichPred){
             # Data is not ordered by position, fourth column is unnecessary
             # Fix: order by Y, then X, remove empty column
             T1 = T1[order(T1$miny,T1$minx),]
-            T_range = T1$width[1]
+            T1
          } else {
             T1 = as.data.frame(
                readr::read_table(
@@ -385,6 +391,7 @@ writePNGs <- function(){
    if(!dir.exists(paste0(params$outputDir,"/PNGs"))){
       dir.create(paste0(params$outputDir,"/PNGs"))
    }
+   PNGfilename = gsub(".csv","",tils[j])
    if(params$subtypes){
       plots2 = list()
       ## Print a side-by-side PNG of thresholded overlay and subtyped patches
@@ -422,7 +429,7 @@ writePNGs <- function(){
       ## Also print just a color coded map of subtypes
       plots2[["types"]] = ggplot(C1, aes(x = minx, y = miny, 
                                          fill = as.character(Call)), color = as.character(Call)) + 
-         geom_point(shape = 22, size = 3) + #theme_pubr() +
+         geom_point(shape = 22, size = 2) + #theme_pubr() +
          scale_fill_manual(values=palette(),
                            labels = names(callDict)) +
          theme(axis.title = element_blank(),
@@ -431,7 +438,7 @@ writePNGs <- function(){
          guides(fill=guide_legend(title="Tissue Type"))
       
       tmp = ggpubr::ggarrange(plotlist = plots2, ncol = 1)
-      png( paste0(params$outputDir,"/PNGs/", tils[j],'subtypes.png') )
+      png( paste0(params$outputDir,"/PNGs/", PNGfilename,'subtypes.png') )
       print(tmp)
       dev.off()
    } else {
@@ -448,7 +455,7 @@ writePNGs <- function(){
                       along = 3)
       ##write files
       png::writePNG(target = paste0(params$outputDir,"/PNGs/",
-                                    tils[j],'.thresh.png'),
+                                    PNGfilename,'.thresh.png'),
                     image = my.rgb)
    }
 }
@@ -557,15 +564,20 @@ for(j in 1:length(canc)){
       percent_calls[j,2:ncol(percent_calls)] = NA
       next
    }
+   #print(head(C1))
    
    # Identify and log Cancer patch size
-   C_range = (C1$minx[2] - C1$minx[1])
-   
+   if(exists("width",C1)){
+      C_range = C1$width[1]
+   } else {
+      C_range = (C1$minx[2] - C1$minx[1])
+   }
+   #print(C_range)
    ## =============================================================
    # Make a dictionary
    # =============================================================
    if(params$subtypes & count == 1){ ## Only need to make this once
-      callDict = makeDict(C1)   
+      callDict = makeDict(C1)  
    }
    
    # =============================================================
@@ -576,9 +588,14 @@ for(j in 1:length(canc)){
       percent_calls[j,2:ncol(percent_calls)] = NA
       next
    }
+   #print(head(T1))
    
-   # Identify and log TIL patch size
-   T_range = (T1$minx[2] - T1$minx[1])
+   if(exists("width",T1)){
+      T_range = T1$width[1]
+   } else {
+      T_range = (T1$minx[2] - T1$minx[1])
+   }
+   #print(T_range)
    
    writeLines(paste0("Patch Ratio (Canc/Til): ", C_range/T_range, "\n"))
    # ===============================================================================

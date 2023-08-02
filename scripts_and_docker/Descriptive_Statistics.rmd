@@ -26,19 +26,16 @@ library(survminer)
 
 ```{r load and parse, include = F}
 df =  as.data.frame(readr::read_csv(file = params$csvPath))
-droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
-              grep("*_TIL_patch*", colnames(df)),
+droppable = c(grep("*patch*", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
               grep("patchRatio", colnames(df)),
-              grep("*percent*", colnames(df)),
-              grep("*overlap", colnames(df)),
-              grep("*patch", colnames(df)),
-              grep("slide_level_call", colnames(df)))
+              grep("*percent_pos", colnames(df)),
+              grep("overlap", colnames(df)))
 
 ## For testing
-# params = list(csvPath = "~/Desktop/tilalign/heathCheck/heathtestOuts/output.csv",
-#               nVars = 2,
-#               survCensor = "censorA.0yes.1no",
-#               survTime = "survivalA")
+#params = list(csvPath = "~/Desktop/tilalign/wsinfer_fullSamples/outputs/withSubtypes/output.csv",
+#              nVars = 2,
+#              survCensor = "censorA.0yes.1no",
+#              survTime = "survivalA")
 
 ## ==== Check for patients with NA invasion, could be 1) sampInfo given for WSI not predicted or 2) no cancer patches predicted. Notify and remove
 missingTIL = factor(rep("OK",nrow(df)), 

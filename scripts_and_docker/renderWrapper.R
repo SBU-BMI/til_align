@@ -5,7 +5,7 @@ params = list(csvPath = args[1],
               survTime = args[2],
               survCensor = args[3],
               outputFormat = args[4])
-print(params)
+#print(params)
 setwd("/data")
 
 ## Read in dataset info -- check approx num of vars to set figure height in output (this is output from callAlign.sh)
@@ -17,10 +17,9 @@ df =  as.data.frame(suppressMessages(readr::read_csv(file = params$csvPath)))
 # -- n_TIL_patch_overlap
 # -- patch_ratio
 # -- percent_pos
-droppable = c(grep("*_Canc_patch", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
-              grep("*_TIL_patch*", colnames(df)),
-              grep("patchRatio", colnames(df)),
-              grep("*_percent_pos", colnames(df)))
+droppable = c(grep("*patch*", colnames(df)), ## *_ regex used to be flexible with subtype specific patch metrics
+              grep("*percent_pos", colnames(df)),
+              grep("overlap", colnames(df)))
 
 df = df[,-droppable]
 params$nVars = sum(which(!colnames(df) %in% c("slideID","scaled_PP","TIL_Class",params$survCensor, params$survTime)))

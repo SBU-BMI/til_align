@@ -404,7 +404,7 @@ writePNGs <- function(){
       
       ## Parse Canc Type 
       Cdat_thresh_melted$Canc_type = factor(Cdat_thresh_melted$Canc_type,
-                                            levels = 0:6,
+                                            levels = seq_len(length(callDict))-1,
                                             labels = names(callDict))
       Cdat_thresh_melted$Canc_presence = !(Cdat_thresh_melted$Canc_type %in% c("benign","background"))
       
